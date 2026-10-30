@@ -39,6 +39,8 @@ var YEAR_BINS = ['未滿 1 年', '1–2 年', '3–4 年', '5–6 年', '7–10 
 var SECTIONS = [
   {
     id: 'A', title: '基本資料', questions: [
+      // 在問卷首頁的同意聲明按「我同意」時填入，不在題目頁顯示；後端要求這題才收件
+      { id: 'A0', label: '參與同意', type: 'radio', required: true, options: ['我同意參與'], consent: true },
       { id: 'A1', label: '你填的是哪份工作？', type: 'radio', required: true,
         options: ['現職', '一年內離開的前一份工作', '超過一年前的工作'],
         endIf: '超過一年前的工作',

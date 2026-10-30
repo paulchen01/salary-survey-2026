@@ -60,19 +60,39 @@ button:disabled { opacity: .5; cursor: default; }
 .done { text-align: center; padding: 32px 16px; }
 .done .code { font-size: 1.5rem; font-weight: 700; letter-spacing: .1em; margin: 8px 0 16px; }
 a { color: var(--accent); }
+.consent-h { margin: 0 0 8px; font-size: 1.125rem; }
+.consent { margin: 0; }
+.consent dt { font-weight: 600; margin-top: 12px; }
+.consent dd { margin: 2px 0 0; color: var(--text); }
+.consent-q { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
 pre { white-space: pre-wrap; word-break: break-all; font-size: .8125rem; text-align: left; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>2026 台灣社會福利人員薪資待遇調查</h1>
-  <p class="sub">飽螺的社工甘苦便條紙 · 匿名填答，約 5 分鐘</p>
+  <p class="sub">飽螺的社工甘苦便條紙 · 匿名填答，約 5–8 分鐘</p>
 
   <div id="intro" class="card">
-    <p>這份問卷不收單位名稱、姓名或聯絡方式。薪資、年資都用區間勾選，不用打金額。</p>
-    <p>公開的統計只顯示縣市、機構類型、服務方案、職務層級和薪資區間；人數少於 5 人的組合會遮蔽。留言要經過審核才會公開。</p>
-    <p>薪資請填 <strong>2026 年 10 月</strong>（或最近一個完整月份）的數字。</p>
-    <div class="nav"><span></span><button class="primary" id="start">開始填寫</button></div>
+    <h2 class="consent-h">參與說明</h2>
+    <dl class="consent">
+      <dt>調查目的</dt>
+      <dd>了解 2026 年台灣社會福利人員的薪資、勞動條件與留任情況。統計結果會公開，給社工夥伴參考，也作為倡議改善待遇的依據。</dd>
+      <dt>誰可以填</dt>
+      <dd>目前在台灣從事社會福利相關工作，或一年內剛離職的人，包含受僱、兼職與自由接案。每人填一次就好。</dd>
+      <dt>怎麼填</dt>
+      <dd>薪資、年資都用區間勾選，不用打金額。薪資請填 <strong>2026 年 10 月</strong>（或最近一個完整月份）的數字。</dd>
+      <dt>匿名與保密</dt>
+      <dd>不收姓名、單位名稱、email 或任何聯絡方式。原始回覆只存在主辦人的 Google 試算表，不會提供給任何單位或個人。</dd>
+      <dt>結果怎麼公開</dt>
+      <dd>只公開統計數字，人數少於 5 人的組別不顯示。留言只有在你同意、而且經過審核後，才會匿名公開。</dd>
+      <dt>可能的不舒服</dt>
+      <dd>部分題目問到薪資、回捐、職場暴力等經驗，可能讓人不舒服。你可以隨時關掉頁面停止填答，送出前的答案只存在你自己的瀏覽器，不會傳出去。</dd>
+      <dt>撤回</dt>
+      <dd>送出後會拿到一組收據碼。之後如果想撤回，把收據碼私訊給「飽螺的社工甘苦便條紙」粉絲專頁，就會刪除那一份。對調查有疑問也可以私訊。</dd>
+    </dl>
+    <p class="consent-q"><strong>我已閱讀以上說明，了解這是自願、匿名的調查。我是否同意參與？</strong></p>
+    <div class="nav"><button id="decline">我不同意</button><button class="primary" id="start">我同意，開始填寫</button></div>
   </div>
 
   <div id="form" hidden>
@@ -187,8 +207,11 @@ function renderQuestion(q, err) {
   return box;
 }
 
+// 同意題在首頁回答，不出現在題目頁
+function onPage(q) { return !q.consent && isVisible(q, answers); }
+
 function visibleIds(section) {
-  return section.questions.filter(function (q) { return isVisible(q, answers); }).map(function (q) { return q.id; });
+  return section.questions.filter(onPage).map(function (q) { return q.id; });
 }
 
 function render() {
@@ -201,7 +224,7 @@ function render() {
   page.innerHTML = '';
   page.appendChild(el('h2', { text: section.title, style: 'margin:0 0 4px;font-size:1.25rem' }));
   section.questions.forEach(function (q) {
-    if (isVisible(q, answers)) page.appendChild(renderQuestion(q, errs[q.id]));
+    if (onPage(q)) page.appendChild(renderQuestion(q, errs[q.id]));
   });
   if (focusId) { var f = document.getElementById(focusId); if (f) f.focus(); }
   document.getElementById('bar').style.width = ((step + 1) / SECTIONS.length * 100) + '%';
@@ -283,7 +306,13 @@ function showDone(html, pre, code) {
   window.scrollTo(0, 0);
 }
 
+document.getElementById('decline').addEventListener('click', function () {
+  drop(DRAFT_KEY);
+  showDone('<h2>謝謝你</h2><p>你選擇不參與，調查到這裡結束，沒有任何資料被送出。</p>');
+});
 document.getElementById('start').addEventListener('click', function () {
+  answers.A0 = '我同意參與';
+  save(DRAFT_KEY, answers);
   document.getElementById('intro').hidden = true;
   document.getElementById('form').hidden = false;
   document.getElementById('demo').hidden = !!API_URL;
