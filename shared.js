@@ -84,7 +84,9 @@ var SECTIONS = [
         '募款、倡議或行政', '其他'],
         hint: '只問方案類型，不問單位名稱。' },
       { id: 'B2', label: '薪資經費來源', type: 'select', required: true, options: [
-        '縣市政府自辦', '政府標案獲補助案', '公益彩券補助', '聯合勸募補助', '其他財源補助', '單位自籌', '我不知道'], showIf: NOT_FREELANCE },
+        '縣市政府自辦', '政府標案或補助案', '公益彩券補助', '聯合勸募補助', '其他財源補助', '單位自籌', '我不知道'],
+        // 2026-10-30 修正錯字；舊寫法視為同一個選項（已收到的回覆、還開著舊頁面的人）
+        aliases: { '政府標案獲補助案': '政府標案或補助案' }, showIf: NOT_FREELANCE },
       { id: 'B3', label: '職稱或職務', type: 'radio', required: true, options: [
         '社工員、社工專員或個案管理員', '社工助理', '學校社工、輔導人員或資源教室人員', '督導',
         '組長、主任或單位主管', '執行長、秘書長或機構負責人', '行政或募款人員', '其他社工相關職務'],
@@ -251,7 +253,7 @@ function validateAnswers(answers, onlyIds) {
       }
       return;
     }
-    if (q.options.indexOf(v) < 0) errors.push({ id: q.id, message: '選項不正確' });
+    if (q.options.indexOf(canonical(q, v)) < 0) errors.push({ id: q.id, message: '選項不正確' });
   });
   var c3 = YEAR_BINS.indexOf(answers.C3), c4 = YEAR_BINS.indexOf(answers.C4);
   if ((!onlyIds || onlyIds.indexOf('C4') >= 0) && c3 >= 0 && c4 > c3) {
@@ -261,13 +263,18 @@ function validateAnswers(answers, onlyIds) {
   return errors;
 }
 
+// 改過文字的選項：舊寫法換成現在的寫法
+function canonical(q, v) {
+  return q.aliases && q.aliases[v] ? q.aliases[v] : v;
+}
+
 // 試算表欄位順序：每題一欄，複選題以「、」串起來
 function toRowValues(answers) {
   return QUESTIONS.map(function (q) {
     if (!isVisible(q, answers)) return '';
     var v = answers[q.id];
     if (Array.isArray(v)) return v.join('、');
-    return isFilled(v) ? String(v) : '';
+    return isFilled(v) ? String(canonical(q, v)) : '';
   });
 }
 
@@ -276,7 +283,7 @@ function rowValuesToAnswers(values) {
   QUESTIONS.forEach(function (q, i) {
     var v = values[i] === undefined || values[i] === null ? '' : String(values[i]);
     if (q.type === 'checkbox') a[q.id] = v ? v.split('、') : [];
-    else a[q.id] = v;
+    else a[q.id] = canonical(q, v);
   });
   return a;
 }
