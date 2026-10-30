@@ -34,6 +34,9 @@ var SALARY_BINS = (function () {
 var FREELANCE = '自由接案';
 var NOT_FREELANCE = { q: 'A4', ne: FREELANCE };
 
+// 有個案量的第一線職務（案量題只問這些人）
+var FRONTLINE = ['社工員、社工專員或個案管理員', '社工助理', '學校社工、輔導人員或資源教室人員'];
+
 var YEAR_BINS = ['未滿 1 年', '1–2 年', '3–4 年', '5–6 年', '7–10 年', '11–15 年', '16 年以上'];
 
 var SECTIONS = [
@@ -48,6 +51,7 @@ var SECTIONS = [
       { id: 'A2', label: '工作所在縣市', type: 'select', required: true, options: COUNTIES },
       { id: 'A3', label: '年齡', type: 'radio', required: true,
         options: ['24 歲以下', '25–29 歲', '30–34 歲', '35–39 歲', '40–44 歲', '45–49 歲', '50–54 歲', '55–59 歲', '60–64 歲', '65 歲以上'] },
+      { id: 'A5', label: '性別', type: 'radio', required: true, options: ['女', '男', '其他', '不想回答'] },
       { id: 'A4', label: '工作型態', type: 'radio', required: true, options: ['全職受僱', '兼職受僱', FREELANCE],
         hint: '自由接案：沒有固定雇主，按案或按時數計酬，含開業的社工師。' }
     ]
@@ -73,8 +77,10 @@ var SECTIONS = [
         hint: '只問方案類型，不問單位名稱。' },
       { id: 'B2', label: '薪資經費來源', type: 'select', required: true, options: [
         '縣市政府自辦', '政府標案獲補助案', '公益彩券補助', '聯合勸募補助', '其他財源補助', '單位自籌', '我不知道'], showIf: NOT_FREELANCE },
-      { id: 'B3', label: '職務層級', type: 'radio', required: true, options: [
-        '第一線工作人員', '督導', '組長或主任以上', '行政與募款', '其他'], showIf: NOT_FREELANCE },
+      { id: 'B3', label: '職稱或職務', type: 'radio', required: true, options: [
+        '社工員、社工專員或個案管理員', '社工助理', '學校社工、輔導人員或資源教室人員', '督導',
+        '組長、主任或單位主管', '執行長、秘書長或機構負責人', '行政或募款人員', '其他社工相關職務'],
+        hint: '有社工師執照的人請選實際職務，執照在後面的證照題勾選。', showIf: NOT_FREELANCE },
       { id: 'B4', label: '是否為保護業務工作人員', type: 'radio', required: true, options: ['是', '否'], showIf: NOT_FREELANCE },
       { id: 'B5', label: '有無領風險加給', type: 'radio', required: true, options: ['有', '無', '不知道'], showIf: NOT_FREELANCE },
       { id: 'B6', label: '單位規模（所在辦公室、科室或機構）', type: 'radio', required: true,
@@ -139,7 +145,7 @@ var SECTIONS = [
       { id: 'E3', label: '下班後需要待命（on-call）嗎？', type: 'radio', required: true,
         options: ['不需要', '需要，有津貼', '需要，沒有津貼'], showIf: NOT_FREELANCE },
       { id: 'E4', label: '目前在案量', type: 'radio', required: true,
-        options: ['20 案以下', '21–40 案', '41–60 案', '61 案以上'], showIf: { q: 'B3', eq: '第一線工作人員' } }
+        options: ['20 案以下', '21–40 案', '41–60 案', '61 案以上'], showIf: { q: 'B3', in: FRONTLINE } }
     ]
   },
   {
@@ -198,8 +204,12 @@ function isFilled(v) {
 function isVisible(q, answers) {
   var c = q.showIf;
   if (!c) return true;
+  // 依據的題目本身不顯示（例如改選自由接案後留下的舊答案），這題也不顯示
+  var dep = findQuestion(c.q);
+  if (dep && !isVisible(dep, answers)) return false;
   var v = answers[c.q];
   if (c.eq !== undefined) return v === c.eq;
+  if (c.in !== undefined) return c.in.indexOf(v) >= 0;
   if (c.ne !== undefined) return isFilled(v) && v !== c.ne;
   if (c.filled) return isFilled(v);
   return true;

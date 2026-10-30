@@ -109,7 +109,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
           <option value="B1">機構類型</option>
           <option value="B1b">服務方案類型</option>
           <option value="B2">薪資經費來源</option>
-          <option value="B3">職務層級</option>
+          <option value="B3">職稱或職務</option>
           <option value="B4">保護業務</option>
         </select></label>
         <label>排序 <select id="sortBy">
@@ -192,7 +192,7 @@ function demoRows(n) {
     var y = weighted([0, 1, 2, 3, 4, 5, 6], [10, 22, 18, 14, 16, 10, 10]);
     a.C3 = YEAR_BINS[y];
     a.C4 = YEAR_BINS[Math.max(0, y - weighted([0, 1, 2], [6, 3, 1]))];
-    var lead = a.B3 !== '第一線工作人員' && a.B3 !== '其他' ? 2 : 0;
+    var lead = ['督導', '組長、主任或單位主管', '執行長、秘書長或機構負責人'].indexOf(a.B3) >= 0 ? 2 : 0;
     var idx = Math.max(0, Math.min(SALARY_BINS.length - 1, Math.round(3 + y * 0.6 + lead + (Math.random() * 4 - 2))));
     a.D1 = SALARY_BINS[idx];
     a.D3 = weighted(findQuestion('D3').options, [8, 1, 0.6, 0.3, 0.1]);
