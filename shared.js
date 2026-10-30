@@ -37,6 +37,11 @@ var NOT_FREELANCE = { q: 'A4', ne: FREELANCE };
 // 有個案量的第一線職務（案量題只問這些人）
 var FRONTLINE = ['社工員、社工專員或個案管理員', '社工助理', '學校社工、輔導人員或資源教室人員'];
 
+// 公部門單位才問聘用身分（考試任用、約聘僱、計畫型的薪資結構差很多）
+var PUBLIC_UNITS = ['地方政府社政單位（社會局處、社福中心）', '地方政府衛政單位（衛生局、心衛中心）',
+  '中央政府機關', '公部門警政單位（如少輔會）', '公部門勞政單位（勞工局處、就服站）',
+  '司法或矯正機關', '學校或教育單位（含大專校院、學生輔導諮商中心）'];
+
 var YEAR_BINS = ['未滿 1 年', '1–2 年', '3–4 年', '5–6 年', '7–10 年', '11–15 年', '16 年以上'];
 
 var SECTIONS = [
@@ -65,6 +70,9 @@ var SECTIONS = [
         '司法或矯正機關', '學校或教育單位（含大專校院、學生輔導諮商中心）',
         '醫院或其他醫事機構', '長照、安養或護理機構', '民間社福基金會、協會或團體',
         '社工師事務所或專業團體', '公司行號、企業基金會', '其他'], showIf: NOT_FREELANCE },
+      { id: 'B1c', label: '聘用身分', type: 'radio', required: true,
+        options: ['公務人員（考試任用）', '約聘或約僱', '計畫型或臨時人員'],
+        showIf: { q: 'B1', in: PUBLIC_UNITS } },
       // 服務方案類型：參照專科社工師五分科、社安網方案與歷年回覆中常見的職務
       { id: 'B1b', label: '主要服務方案類型', type: 'select', required: true, options: [
         '兒少保護（含家外安置）', '家暴、性侵害、性剝削防治', '社福中心、脆弱家庭服務',
@@ -342,6 +350,7 @@ function aggregate(rows, now) {
     A2: salaryGroup(full, 'A2', COUNTIES),
     B1: salaryGroup(full, 'B1', findQuestion('B1').options),
     B1b: salaryGroup(full, 'B1b', findQuestion('B1b').options),
+    B1c: salaryGroup(full, 'B1c', findQuestion('B1c').options),
     B2: salaryGroup(full, 'B2', findQuestion('B2').options),
     B3: salaryGroup(full, 'B3', findQuestion('B3').options),
     B4: salaryGroup(full, 'B4', findQuestion('B4').options)

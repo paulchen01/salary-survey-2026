@@ -108,6 +108,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
           <option value="A2">縣市</option>
           <option value="B1">機構類型</option>
           <option value="B1b">服務方案類型</option>
+          <option value="B1c">聘用身分（公部門）</option>
           <option value="B2">薪資經費來源</option>
           <option value="B3">職稱或職務</option>
           <option value="B4">保護業務</option>
@@ -199,6 +200,8 @@ function demoRows(n) {
     if (Math.random() < 0.2) { a.H4 = rand(sample); a.H5 = '同意匿名公開（經審核）'; a._approved = Math.random() < 0.8; }
     if (a._approved && Math.random() < 0.3) a._reply = '謝謝分享，辛苦了！';
     a._time = new Date(2026, 10, 1 + Math.floor(Math.random() * 20));
+    // 和真實資料一樣：不適用的題目留空
+    QUESTIONS.forEach(function (q) { if (!isVisible(q, a)) a[q.id] = q.type === 'checkbox' ? [] : ''; });
     rows.push(a);
   }
   return rows;
