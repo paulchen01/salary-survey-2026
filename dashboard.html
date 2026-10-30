@@ -169,15 +169,12 @@ svg text { fill: var(--text-2); font-size: 11px; }
 
     <div class="card x-new">
       <h2>就業類型</h2>
-      <p class="lead">大家在哪裡工作，以及各部門的全職月薪。</p>
+      <p class="lead">大家在哪裡工作。</p>
       <div class="row2">
         <div><h3 class="sub-h">就業部門</h3><div class="bars" id="sectorBars"></div></div>
-        <div><h3 class="sub-h">各部門全職月薪中位數</h3><div class="bars" id="sectorPay"></div></div>
-      </div>
-      <div class="row2">
-        <div><h3 class="sub-h">機構類型</h3><div class="bars" id="b1Bars"></div></div>
         <div><h3 class="sub-h">公部門的聘用身分</h3><div class="bars" id="b1cBars"></div></div>
       </div>
+      <h3 class="sub-h">機構類型</h3><div class="bars" id="b1Bars"></div>
     </div>
 
     <div class="row2">
@@ -278,7 +275,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
 </div>
 <div class="tip" id="tip"></div>
 
-<script src="shared.js"></script>
+<script src="shared.js?v=9"></script>
 <script>
 // 部署 Apps Script 後，把網頁應用程式網址貼在這裡
 var API_URL = 'https://script.google.com/macros/s/AKfycbzoyYdV0WHo1zUfR9Jk5Ui2FLLm10GFL7DZblrUFe_sp-xd093MlD08Bd3K0sTMLEhe/exec';
@@ -356,27 +353,20 @@ function render() {
   document.getElementById('hero').hidden = false;
   document.getElementById('heroN').textContent = s.total;
   document.getElementById('heroSub').textContent = '全職受僱 ' + s.fullTime + ' 人 · 自由接案 ' + (s.freelance || 0) +
-    ' 人 · 每分鐘自動更新';
+    ' 人 · 每 10 分鐘更新一次';
   document.getElementById('few').hidden = !s.tooFew;
   document.getElementById('content').hidden = !!s.tooFew;
   if (s.tooFew) return;
-  renderTiles(s);
-  renderSalary(s);
-  renderYears(s);
-  renderGroups(s);
-  // 新區塊需要第 8 版後端；舊快取資料沒有這些欄位就先隱藏
+  // 新區塊需要第 8 版以上的後端；舊快取資料沒有這些欄位就先隱藏
   var hasNew = !!(s.cross && s.sample);
   document.querySelectorAll('.x-new').forEach(function (c) { c.hidden = !hasNew; });
-  if (hasNew) {
-    renderProfile(s);
-    renderSector(s);
-    renderFindings(s);
-    renderCross(s);
-    renderSample(s);
-  }
-  renderFree(s);
-  renderDists(s);
-  renderComments(s);
+  var parts = [renderTiles, renderSalary, renderYears, renderGroups];
+  if (hasNew) parts = parts.concat([renderProfile, renderSector, renderFindings, renderCross, renderSample]);
+  parts = parts.concat([renderFree, renderDists, renderComments]);
+  // 一個區塊出錯不要拖垮其他區塊
+  parts.forEach(function (fn) {
+    try { fn(s); } catch (e) { if (window.console) console.error(fn.name, e); }
+  });
 }
 
 function renderTiles(s) {
@@ -614,9 +604,6 @@ function renderSector(s) {
   shareBars('sectorBars', s.sample.sector, '--c-who');
   shareBars('b1Bars', s.sample.B1, '--c-who');
   shareBars('b1cBars', s.sample.B1c, '--c-who');
-  var pay = document.getElementById('sectorPay');
-  pay.style.setProperty('--bar', 'var(--c-pay)');
-  crossBars(pay, s, 'sector', 'salary');
 }
 
 var FINDINGS = [

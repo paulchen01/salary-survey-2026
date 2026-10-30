@@ -467,7 +467,13 @@ function aggregate(rows, now) {
     dists: {}
   };
   ['D1f', 'D1r', 'D1s', 'D1i'].forEach(function (id) { out.free.dists[id] = distribution(rows, id); });
-  out.comments = rows.filter(function (r) {
+  out.comments = commentsOf(rows);
+  return out;
+}
+
+// 經填答者同意、且主辦人打勾的留言，新的在前
+function commentsOf(rows) {
+  return rows.filter(function (r) {
     return r._approved && r.H5 === '同意匿名公開（經審核）' && isFilled(r.H4);
   }).map(function (r) {
     var t = r._time instanceof Date ? r._time : null;
@@ -476,5 +482,4 @@ function aggregate(rows, now) {
       month: t ? t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) : ''
     };
   }).reverse();
-  return out;
 }
