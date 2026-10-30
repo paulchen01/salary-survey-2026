@@ -52,6 +52,36 @@ h2 { font-size: 1.125rem; margin: 0 0 4px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8125rem; color: var(--text-2); margin: -6px 0 12px; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .dist { border-left: 4px solid var(--bar, var(--c-pay)); padding-left: 12px; }
+/* 年資與月薪 */
+.yrow { padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.yhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-bottom: 8px; }
+.ylab { font-weight: 700; font-size: 1rem; }
+.yn { color: var(--muted); font-size: .875rem; }
+.ymed { margin-left: auto; font-weight: 700; color: var(--median); font-variant-numeric: tabular-nums; }
+.yscale { position: relative; height: 16px; background: var(--grid); border-radius: 8px; }
+.yiqr { position: absolute; top: 3px; bottom: 3px; background: var(--c-pay); opacity: .45; border-radius: 5px; }
+.ydot { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+  background: var(--median); border: 2px solid var(--card); }
+.yaxis { position: relative; height: 20px; margin-top: 8px; font-size: .8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.yaxis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.yaxis span:first-child { transform: none; }
+.yaxis-note { text-align: right; font-size: .75rem; color: var(--muted); }
+td.below { color: var(--warn); font-weight: 600; }
+td.med { font-weight: 600; }
+/* 分組比較：手機上每組變成一張小卡 */
+@media (max-width: 600px) {
+  #groupTable thead { display: none; }
+  #groupTable, #groupTable tbody, #groupTable tr, #groupTable td { display: block; width: 100%; }
+  #groupTable tr { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
+  #groupTable tr.sup-row { display: flex; justify-content: space-between; padding: 8px 14px; }
+  #groupTable tr.sup-row td { width: auto; }
+  #groupTable td { border: 0; padding: 3px 0; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  #groupTable td::before { content: attr(data-label); color: var(--muted); text-align: left; font-weight: 400; }
+  #groupTable td.g { font-weight: 700; font-size: 1.0625rem; padding-bottom: 6px; }
+  #groupTable td.g::before, #groupTable td.sup::before { content: none; }
+  .toolbar label { display: flex; align-items: center; gap: 8px; width: 100%; }
+  .toolbar select { flex: 1; font-size: 1rem; padding: 8px 10px; }
+}
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
 .lead { color: var(--text-2); margin: 0 0 14px; font-size: .875rem; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -136,7 +166,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
       </div>
       <div class="card">
         <h2>年資與月薪</h2>
-        <p class="lead">點是中位數所在區間，線段是中間一半的人落在的範圍。</p>
+        <p class="lead">右邊數字是中位數；圓點是中位數的位置，色帶是中間一半的人落在的範圍。</p>
         <div class="seg" role="group" aria-label="年資類型">
           <button data-y="C3" aria-pressed="true">社工總年資</button>
           <button data-y="C4" aria-pressed="false">現職年資</button>
@@ -350,38 +380,53 @@ function renderSalary(s) {
 }
 
 function renderYears(s) {
+  // 用 HTML 排，不用 SVG：手機上字不會跟著縮小
   var groups = s.byYears[yearKey];
-  var W = 460, rowH = 44, padL = 78, padR = 12, padT = 8, axisH = 34;
   var bins = s.salaryBins.length;
   var shown = groups.filter(function (g) { return !g.suppressed; });
   var lo = Math.min.apply(null, shown.map(function (g) { return g.q1Idx; }).concat([bins]));
   var hi = Math.max.apply(null, shown.map(function (g) { return g.q3Idx; }).concat([0]));
   lo = Math.max(0, lo - 1); hi = Math.min(bins - 1, hi + 1);
-  var H = padT + groups.length * rowH + axisH;
-  var x = function (i) { return padL + (i - lo + 0.5) / (hi - lo + 1) * (W - padL - padR); };
-  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="年資與月薪中位數">';
-  for (var i = lo; i <= hi; i++) {
-    svg += '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + padT + '" y2="' + (H - axisH) + '" stroke="var(--grid)"/>';
-    if ((i - lo) % 2 === 0) {
-      var lab = s.salaryBins[i].replace(/,000/g, 'k').replace(/,999/g, '').replace(/–(\d+)$/, '');
-      svg += '<text x="' + x(i) + '" y="' + (H - axisH + 16) + '" text-anchor="middle">' + lab.split('–')[0] + '</text>';
-    }
-  }
-  svg += '<text x="' + (W - padR) + '" y="' + (H - 4) + '" text-anchor="end">月薪區間下限（k = 千元）</text>';
-  groups.forEach(function (g, k) {
-    var cy = padT + k * rowH + rowH / 2;
-    svg += '<text x="' + (padL - 8) + '" y="' + (cy + 4) + '" text-anchor="end">' + g.label + '</text>';
+  var N = hi - lo + 1;
+  function left(i) { return (i - lo) / N * 100; }
+  function k(i) { return s.salaryBins[i].replace(/[^\d,–]/g, '').split('–')[0].replace(/,000$/, 'k').replace(/^,|,/g, ''); }
+  var box = document.getElementById('yearsChart');
+  box.innerHTML = '';
+  groups.forEach(function (g) {
+    var row = el('div', { class: 'yrow' });
+    var head = el('div', { class: 'yhead' });
+    head.appendChild(el('span', { class: 'ylab' }, g.label));
     if (g.suppressed) {
-      svg += '<text x="' + (padL + 4) + '" y="' + (cy + 4) + '" style="fill:var(--muted)">樣本不足</text>';
+      head.appendChild(el('span', { class: 'yn' }, '樣本不足 5 人'));
+      row.appendChild(head);
+      box.appendChild(row);
       return;
     }
+    head.appendChild(el('span', { class: 'yn' }, g.n + ' 人'));
+    head.appendChild(el('span', { class: 'ymed' }, g.median));
+    row.appendChild(head);
     var tip = g.label + '（' + g.n + ' 人）：中位數 ' + g.median + '，中間一半 ' + g.q1 + ' 至 ' + g.q3;
-    svg += '<g data-tip="' + tip + '"><rect x="' + padL + '" y="' + (cy - rowH / 2) + '" width="' + (W - padL - padR) + '" height="' + rowH + '" fill="transparent"/>' +
-      '<line x1="' + x(g.q1Idx) + '" x2="' + x(g.q3Idx) + '" y1="' + cy + '" y2="' + cy + '" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round"/>' +
-      '<circle cx="' + x(g.medianIdx) + '" cy="' + cy + '" r="5" fill="var(--series-1)" stroke="var(--card)" stroke-width="2"/></g>';
+    var scale = el('div', { class: 'yscale', 'data-tip': tip });
+    var iqr = el('div', { class: 'yiqr' });
+    iqr.style.left = left(g.q1Idx) + '%';
+    iqr.style.width = (g.q3Idx - g.q1Idx + 1) / N * 100 + '%';
+    var dot = el('div', { class: 'ydot' });
+    dot.style.left = left(g.medianIdx + 0.5) + '%';
+    scale.appendChild(iqr);
+    scale.appendChild(dot);
+    row.appendChild(scale);
+    box.appendChild(row);
   });
-  svg += '</svg>';
-  document.getElementById('yearsChart').innerHTML = svg;
+  // 座標：每兩格標一次區間下限
+  var axis = el('div', { class: 'yaxis' });
+  for (var i = lo; i <= hi + 1; i += 2) {
+    if (i > hi) break;
+    var t = el('span', {}, k(i));
+    t.style.left = left(i) + '%';
+    axis.appendChild(t);
+  }
+  box.appendChild(axis);
+  box.appendChild(el('div', { class: 'yaxis-note' }, '月薪（k = 千元）'));
 }
 
 function renderGroups(s) {
@@ -400,15 +445,18 @@ function renderGroups(s) {
   var body = document.createElement('tbody');
   rows.forEach(function (g) {
     var tr = document.createElement('tr');
-    tr.appendChild(el('td', {}, g.label));
+    // data-label 給手機版卡片排版用
+    tr.appendChild(el('td', { class: 'g' }, g.label));
     if (g.suppressed) {
+      tr.className = 'sup-row';
       var td = el('td', { class: 'sup', colspan: '4' }, '樣本不足 5 人');
       tr.appendChild(td);
     } else {
-      tr.appendChild(el('td', { class: 'n' }, String(g.n)));
-      tr.appendChild(el('td', {}, g.median));
-      tr.appendChild(el('td', {}, g.q1 === g.q3 ? g.q1 : g.q1 + ' 至 ' + g.q3));
-      tr.appendChild(el('td', { class: 'n' }, pct(g.belowShare)));
+      tr.appendChild(el('td', { class: 'n', 'data-label': '人數' }, g.n + ' 人'));
+      tr.appendChild(el('td', { class: 'med', 'data-label': '中位數' }, g.median));
+      tr.appendChild(el('td', { 'data-label': '中間一半' }, g.q1 === g.q3 ? g.q1 : g.q1 + ' 至 ' + g.q3));
+      tr.appendChild(el('td', { class: 'n' + (g.belowShare > 0 ? ' below' : ''), 'data-label': '38,999 以下' },
+        pct(g.belowShare) + '（' + Math.round(g.belowShare * g.n) + ' 人）'));
     }
     body.appendChild(tr);
   });
