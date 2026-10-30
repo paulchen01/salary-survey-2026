@@ -201,7 +201,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
 
     <div class="card x-new">
       <h2>重點發現</h2>
-      <p class="lead">把題目交叉比對，回答社工界最關心的幾個問題。每組 5 人以上才顯示；標 ＊ 的組別不到 10 人，一兩個人就會讓比例大幅變動，僅供參考。</p>
+      <p class="lead">把題目交叉比對，回答社工界最關心的幾個問題。月薪用各區間中點估算的平均（近似值）。每組 5 人以上才顯示；標 ＊ 的組別不到 10 人，一兩個人就會讓比例大幅變動，僅供參考。</p>
       <div class="grid-dists" id="findings"></div>
     </div>
 
@@ -229,7 +229,6 @@ svg text { fill: var(--text-2); font-size: 11px; }
           <option value="B3">職稱或職務</option>
           <option value="B4">保護業務</option>
           <option value="B5">風險加給</option>
-          <option value="A5">性別</option>
           <option value="A3">年齡</option>
           <option value="C1">學歷</option>
           <option value="C2">證照</option>
@@ -275,7 +274,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
 </div>
 <div class="tip" id="tip"></div>
 
-<script src="shared.js?v=11"></script>
+<script src="shared.js?v=12"></script>
 <script>
 // 部署 Apps Script 後，把網頁應用程式網址貼在這裡
 var API_URL = 'https://script.google.com/macros/s/AKfycbzoyYdV0WHo1zUfR9Jk5Ui2FLLm10GFL7DZblrUFe_sp-xd093MlD08Bd3K0sTMLEhe/exec';
@@ -369,6 +368,15 @@ function render() {
   });
 }
 
+// 3% 調薪全額落實：分母只算回答「有全額／有部分／沒有」的人，不算不適用、不知道
+function raise3Tile(s) {
+  var d = s.dists && s.dists.D6;
+  if (!d || d.suppressed) return ['3% 調薪全額落實', '—', '--c-pay', ''];
+  var c = {}; d.items.forEach(function (i) { c[i.label] = i.count; });
+  var base = (c['有，全額'] || 0) + (c['有，部分'] || 0) + (c['沒有'] || 0);
+  return ['3% 調薪全額落實', base ? pct(c['有，全額'] / base) : '—', '--c-pay', (c['有，全額'] || 0) + ' / ' + base + ' 人'];
+}
+
 function renderTiles(s) {
   // [標題, 數值, 主題色, 人數（顯示在數值下方）, 數值用小字]
   var emp = s.total - (s.freelance || 0);
@@ -377,7 +385,7 @@ function renderTiles(s) {
     ['全職月薪中位數', s.overall.suppressed ? '—' : s.overall.median, '--c-pay', s.fullTime + ' 位全職受僱', true],
     ['月薪 38,999 元以下', s.overall.suppressed ? '—' : pct(s.overall.belowShare), '--warn',
       s.overall.suppressed ? '' : people(s.overall.belowShare, s.fullTime)],
-    ['有回捐', pct(s.kpi.refundShare), '--c-pay', people(s.kpi.refundShare, emp)],
+    raise3Tile(s),
     ['加班無償或不能報', pct(s.kpi.unpaidOvertimeShare), '--c-time', people(s.kpi.unpaidOvertimeShare, emp)],
     ['一年內想離職（4–5 分）', pct(s.kpi.leaveShare), '--c-stay', people(s.kpi.leaveShare, s.total)],
     ['一年內遇過威脅、暴力或被申訴', pct(s.kpi.violenceShare), '--c-safe', people(s.kpi.violenceShare, s.total)]
@@ -410,13 +418,16 @@ function barList(container, items, opts) {
     row.appendChild(lab);
     var tr = el('div', { class: 'track', 'data-tip': tip });
     var f = el('div', { class: 'fill' + (cls ? ' ' + cls : '') });
-    f.style.width = (opts.value(it) / max * 100) + '%';
+    var masked = opts.maskBelow && it.count > 0 && it.count < opts.maskBelow;
+    f.style.width = masked ? '0' : (opts.value(it) / max * 100) + '%';
     tr.appendChild(f);
     row.appendChild(tr);
     // 比例加人數，一眼看出幾個人
     var num = el('div', { class: 'num' + (it.count ? '' : ' zero'), 'data-tip': tip });
     if (it.sup) {
       num.appendChild(el('span', { class: 'sup-num' }, '樣本不足 5 人'));
+    } else if (masked) {
+      num.appendChild(el('span', { class: 'sup-num' }, '少於 5 人'));
     } else {
       num.appendChild(el('b', {}, opts.text(it)));
       num.appendChild(el('span', { class: 'cnt' }, it.count + ' 人' + (opts.fewBelow && it.count < opts.fewBelow ? ' ＊' : '')));
@@ -430,13 +441,18 @@ function renderSalary(s) {
   var total = s.fullTime;
   var belowIdx = s.salaryBins.indexOf(s.belowStartMaxBin);
   document.getElementById('distLead').textContent = '中位數落在 ' + s.overall.median + ' 元；中間一半的人在 ' +
-    s.overall.q1 + ' 到 ' + s.overall.q3 + ' 元之間。';
-  barList(document.getElementById('salaryBars'), s.salaryDist, {
-    value: function (i) { return i.count; },
+    s.overall.q1 + ' 到 ' + s.overall.q3 + ' 元之間。長條以 100% 為滿格；最高端沒有人填的區間不列出。';
+  var counts = s.salaryDist.map(function (d) { return d.count; });
+  var first = counts.findIndex(function (c) { return c > 0; });
+  var last = counts.length - 1 - counts.slice().reverse().findIndex(function (c) { return c > 0; });
+  var start = Math.min(first, belowIdx), items = s.salaryDist.slice(start, last + 1);
+  barList(document.getElementById('salaryBars'), items, {
+    max: 1,
+    value: function (i) { return total ? i.count / total : 0; },
     text: function (i) { return total ? pct(i.count / total) : '—'; },
     tip: function (i) { return i.count + ' 人，' + (total ? pct(i.count / total) : '—'); },
-    cls: function (i, k) { return k <= belowIdx ? 'warn' : (i.label === s.overall.median ? 'median' : ''); },
-    sepAfter: belowIdx, sepText: '以上為 38,999 元以下（114 年公告起薪 38,898 元）'
+    cls: function (i, k) { return k + start <= belowIdx ? 'warn' : (i.label === s.overall.median ? 'median' : ''); },
+    sepAfter: belowIdx - start, sepText: '以上為 38,999 元以下（114 年公告起薪 38,898 元）'
   });
 }
 
@@ -499,11 +515,11 @@ function renderGroups(s) {
     rows.sort(function (a, b) {
       if (a.suppressed !== b.suppressed) return a.suppressed ? 1 : -1;
       if (a.suppressed) return 0;
-      return sort === 'n' ? b.n - a.n : b.medianIdx - a.medianIdx || b.n - a.n;
+      return sort === 'n' ? b.n - a.n : (b.mean || 0) - (a.mean || 0) || b.medianIdx - a.medianIdx || b.n - a.n;
     });
   }
   var tb = document.getElementById('groupTable');
-  tb.innerHTML = '<thead><tr><th>組別</th><th class="n">人數</th><th>中位數區間</th><th>中間一半落在</th><th class="n">38,999 以下</th></tr></thead>';
+  tb.innerHTML = '<thead><tr><th>組別</th><th class="n">人數</th><th class="n">估計平均</th><th>中位數區間</th><th>中間一半落在</th><th class="n">38,999 以下</th></tr></thead>';
   var body = document.createElement('tbody');
   rows.forEach(function (g) {
     var tr = document.createElement('tr');
@@ -511,11 +527,12 @@ function renderGroups(s) {
     tr.appendChild(el('td', { class: 'g' }, g.label));
     if (g.suppressed) {
       tr.className = 'sup-row';
-      var td = el('td', { class: 'sup', colspan: '4' }, '樣本不足 5 人');
+      var td = el('td', { class: 'sup', colspan: '5' }, '樣本不足 5 人');
       tr.appendChild(td);
     } else {
-      tr.appendChild(el('td', { class: 'n', 'data-label': '人數' }, g.n + ' 人'));
-      tr.appendChild(el('td', { class: 'med', 'data-label': '中位數' }, g.median));
+      tr.appendChild(el('td', { class: 'n', 'data-label': '人數' }, g.n + ' 人' + (g.n < 10 ? ' ＊' : '')));
+      tr.appendChild(el('td', { class: 'n med', 'data-label': '估計平均' }, g.mean ? '約 ' + money(g.mean) : '—'));
+      tr.appendChild(el('td', { 'data-label': '中位數' }, g.median));
       tr.appendChild(el('td', { 'data-label': '中間一半' }, g.q1 === g.q3 ? g.q1 : g.q1 + ' 至 ' + g.q3));
       tr.appendChild(el('td', { class: 'n' + (g.belowShare > 0 ? ' below' : ''), 'data-label': '38,999 以下' },
         pct(g.belowShare) + '（' + Math.round(g.belowShare * g.n) + ' 人）'));
@@ -529,16 +546,22 @@ function renderGroups(s) {
 var TOPIC = { D: '--c-pay', F: '--c-pay', E: '--c-time', G: '--c-safe', H: '--c-stay',
   A: '--c-who', B: '--c-who', C: '--c-who', s: '--c-who' };
 
-function distCard(d, id) {
+var CARD_NOTES = {
+  G3: '10/30 晚上 10:45 以前，部分 App 內建瀏覽器只能單選，複選比例可能略為偏低。'
+};
+
+function distCard(d, id, maskBelow) {
+  if (!d || d.suppressed) return null;
   var card = el('div', { class: 'dist' });
   card.style.setProperty('--bar', 'var(' + (TOPIC[id.charAt(0)] || '--c-pay') + ')');
   card.appendChild(el('h3', {}, d.question));
-  if (d.suppressed) { card.appendChild(el('div', { class: 'base' }, '回答人數不足 5 人')); return card; }
   card.appendChild(el('div', { class: 'base' }, d.n + ' 人回答' + (d.multi ? '（複選）' : '')));
   var bars = el('div', { class: 'bars' });
   card.appendChild(bars);
+  if (CARD_NOTES[id]) card.appendChild(el('p', { class: 'note' }, CARD_NOTES[id]));
   barList(bars, d.items, {
     max: 1,
+    maskBelow: maskBelow,
     value: function (i) { return i.share; },
     text: function (i) { return pct(i.share); },
     tip: function (i) { return i.count + ' 人，' + pct(i.share); }
@@ -554,7 +577,7 @@ function topItem(d) {
 }
 
 function renderProfile(s) {
-  var defs = [['sector', '最多人的就業部門'], ['B1b', '最多人的服務領域'], ['B2', '最常見的薪資經費來源'],
+  var defs = [['sector', '最多人的就業部門'], ['B2', '最常見的薪資經費來源'],
     ['B3', '最多人的職稱'], ['C3', '最多人的社工年資'], ['A3', '最多人的年齡層']];
   var box = document.getElementById('profile');
   box.innerHTML = '';
@@ -574,9 +597,10 @@ function shareBars(id, d, colorVar) {
   if (!d || d.suppressed) { box.innerHTML = ''; box.appendChild(el('p', { class: 'note' }, '回答人數不足 5 人')); return; }
   barList(box, d.items, {
     max: 1,
+    maskBelow: 5,
     value: function (i) { return i.share; },
     text: function (i) { return pct(i.share); },
-    tip: function (i) { return i.count + ' 人，' + pct(i.share); }
+    tip: function (i) { return i.count < 5 ? '少於 5 人' : i.count + ' 人，' + pct(i.share); }
   });
 }
 
@@ -586,22 +610,26 @@ function crossItems(s, key, metric) {
   var salaryOnly = metric === 'salary' || metric === 'below';
   return groupOptions(key).map(function (o, k) {
     var c = cells[k];
-    return c ? { label: o, count: c[0], v: c[1] } : { label: o, count: 0, v: 0, sup: true };
+    return c ? { label: o, count: c[0], v: c[1], mean: c[2] } : { label: o, count: 0, v: 0, sup: true };
   }).filter(function (i) { return !(salaryOnly && i.label === '自由接案'); }); // 自由接案沒有月薪
 }
 
+var SALARY_SCALE = 60000; // 月薪長條的滿格：6 萬元（從 0 元畫起，不放大差距）
+function money(n) { return n.toLocaleString('en-US') + ' 元'; }
+
 function crossBars(box, s, key, metric) {
   var isSalary = CROSS_METRICS[metric].salary;
+  // 月薪：以估計平均呈現，長條從 0 元畫起；中位數區間 3,000 一格太粗，各組常落在同一格而看不出差別
   barList(box, crossItems(s, key, metric), {
-    max: isSalary ? 0 : 1,
-    fewBelow: isSalary ? 0 : 10,
-    value: function (i) { return isSalary ? (i.sup ? 0 : i.v + 1) : i.v; },
-    text: function (i) { return isSalary ? s.salaryBins[i.v] : pct(i.v); },
+    max: 1,
+    fewBelow: 10,
+    value: function (i) { return isSalary ? (i.mean || 0) / SALARY_SCALE : i.v; },
+    text: function (i) { return isSalary ? (i.mean ? '約 ' + money(i.mean) : s.salaryBins[i.v]) : pct(i.v); },
     tip: function (i) {
       if (i.sup) return '樣本不足 5 人';
-      return (isSalary ? '中位數 ' + s.salaryBins[i.v] : pct(i.v)) + '（' + i.count + ' 人）';
+      return (isSalary ? '估計平均約 ' + money(i.mean) + '，中位數 ' + s.salaryBins[i.v] : pct(i.v)) + '（' + i.count + ' 人）';
     },
-    cls: function (i) { return isSalary && i.v <= s.salaryBins.indexOf(s.belowStartMaxBin) ? 'warn' : ''; }
+    cls: function (i) { return isSalary && i.mean && i.mean < 38898 ? 'warn' : ''; }
   });
 }
 
@@ -612,7 +640,6 @@ function renderSector(s) {
 }
 
 var FINDINGS = [
-  { title: '性別與月薪', topic: '--c-pay', parts: [['A5', 'salary']] },
   { title: '證照、學歷有沒有反映在薪水', topic: '--c-pay', parts: [['C2', 'salary'], ['C1', 'salary']] },
   { title: '經費來源與 3% 調薪落實', topic: '--c-pay', parts: [['B2', 'raise3']] },
   { title: '保護業務有沒有相對的保障', topic: '--c-safe', parts: [['B4', 'riskPay'], ['B4', 'violence']] },
@@ -627,7 +654,7 @@ function renderFindings(s) {
     card.style.setProperty('--bar', 'var(' + f.topic + ')');
     card.appendChild(el('h3', {}, f.title));
     f.parts.forEach(function (p) {
-      var h = el('h4', {}, CROSS_METRICS[p[1]].label);
+      var h = el('h4', {}, CROSS_METRICS[p[1]].label.replace('全職月薪中位數', '全職月薪（估計平均）'));
       h.insertBefore(el('span', { class: 'gl' }, '依「' + groupLabel(p[0]) + '」分組'), h.firstChild);
       card.appendChild(h);
       var bars = el('div', { class: 'bars' });
@@ -645,15 +672,25 @@ function fillSelect(sel, pairs) {
 
 function renderCross(s) {
   var g = document.getElementById('xGroup'), m = document.getElementById('xMetric');
-  fillSelect(g, CROSS_GROUPS.map(function (k) { return [k, groupLabel(k).replace(/（.*?）|？/g, '')]; }));
-  fillSelect(m, Object.keys(CROSS_METRICS).map(function (k) { return [k, CROSS_METRICS[k].label]; }));
+  fillSelect(g, CROSS_GROUPS.filter(function (k) { return k !== 'A5'; })
+    .map(function (k) { return [k, groupLabel(k).replace(/（.*?）|？/g, '')]; }));
+  fillSelect(m, Object.keys(CROSS_METRICS).filter(function (k) { return k !== 'refund'; })
+    .map(function (k) { return [k, CROSS_METRICS[k].label.replace('全職月薪中位數', '全職月薪（估計平均）')]; }));
   var box = document.getElementById('xBars');
   var metric = m.value;
+  // 用月薪分組再看月薪、用暴力經驗分組再看暴力比例：答案本來就確定，沒有意義
+  var circular = (g.value === 'band' && (metric === 'salary' || metric === 'below')) || (g.value === 'viol' && metric === 'violence');
+  if (circular) {
+    box.innerHTML = '';
+    box.appendChild(el('p', { class: 'note' }, '這個組合的答案本來就確定（分組本身就是這個指標），請換一個指標或分組。'));
+    document.getElementById('xNote').textContent = '';
+    return;
+  }
   box.style.setProperty('--bar', 'var(' + ({ salary: '--c-pay', below: '--warn', leave: '--c-stay', violence: '--c-safe',
     refund: '--c-pay', unpaid: '--c-time', raise3: '--c-pay', riskPay: '--c-safe' })[metric] + ')');
   crossBars(box, s, g.value, metric);
   document.getElementById('xNote').textContent = CROSS_METRICS[metric].salary
-    ? '長條越長代表中位數越高；橘色是中位數落在 38,999 元以下。'
+    ? '月薪以各區間中點估算平均，是近似值；長條從 0 元畫起，滿格是 6 萬元。橘色表示估計平均低於起薪。標 ＊ 的組別不到 10 人，僅供參考。'
     : '長條以 100% 為滿格；比例的分母是這一組裡有回答這件事的人。標 ＊ 的組別不到 10 人，僅供參考。';
 }
 
@@ -661,21 +698,27 @@ function renderSample(s) {
   var box = document.getElementById('sample');
   box.innerHTML = '';
   ['A4', 'A2', 'A3', 'A5', 'B1b', 'B3', 'B2', 'C1', 'C2', 'C3'].forEach(function (id) {
-    box.appendChild(distCard(s.sample[id], id));
+    var c = distCard(s.sample[id], id, 5);
+    if (c) box.appendChild(c);
   });
 }
 
 function renderDists(s) {
   var box = document.getElementById('dists');
   box.innerHTML = '';
-  Object.keys(s.dists).forEach(function (id) { box.appendChild(distCard(s.dists[id], id)); });
+  Object.keys(s.dists).forEach(function (id) {
+    if (id === 'D3' || id === 'F2') return; // 回捐幾乎沒有人有，不呈現（舊版後端仍會送來）
+    var c = distCard(s.dists[id], id);
+    if (c) box.appendChild(c);
+  });
 }
 
 // 自由接案的收入按案計，起伏大，不和受僱月薪合併
 function renderFree(s) {
   var card = document.getElementById('freeCard');
-  card.hidden = !s.free;
-  if (!s.free) return;
+  // 不到 5 人時整區不顯示（只有一兩個人的統計沒有意義，也容易被認出）
+  card.hidden = !s.free || s.free.overall.suppressed;
+  if (card.hidden) return;
   var o = s.free.overall, box = document.getElementById('freeDists');
   box.innerHTML = '';
   if (o.suppressed) {

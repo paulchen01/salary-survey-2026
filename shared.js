@@ -345,8 +345,6 @@ var CROSS_METRICS = {
     hit: function (r) { return r.H1 === '4' || r.H1 === '5'; } },
   violence: { label: '遇過威脅、暴力或申訴的比例', base: function (r) { return violenceOf(r) !== ''; },
     hit: function (r) { return violenceOf(r) === '遇過'; } },
-  refund: { label: '有回捐的比例', base: function (r) { return isFilled(r.D3); },
-    hit: function (r) { return r.D3 !== '沒有'; } },
   unpaid: { label: '加班無償或不能報的比例', base: function (r) { return r.E2 && r.E2.length > 0; },
     hit: function (r) { return r.E2.indexOf('無償') >= 0 || r.E2.indexOf('不被允許申報') >= 0; } },
   raise3: { label: '3% 調薪全額落實的比例（不含不適用、不知道）',
@@ -367,12 +365,25 @@ function crossTab(rows, key, metric) {
     if (m.salary) {
       var idx = g.filter(isFullSalary).map(function (r) { return SALARY_BINS.indexOf(r.D1); })
         .sort(function (a, b) { return a - b; });
-      return idx.length < MIN_CELL ? null : [idx.length, binQuantile(idx, 0.5)];
+      return idx.length < MIN_CELL ? null : [idx.length, binQuantile(idx, 0.5), meanSalary(idx)];
     }
     var base = g.filter(m.base);
     if (base.length < MIN_CELL) return null;
     return [base.length, Math.round(base.filter(m.hit).length / base.length * 1000) / 1000];
   });
+}
+
+// 以區間中點估算平均月薪（區間資料常用的近似法）。最低格「未滿 30,000」取 28,500，最高格「80,000 以上」取 81,500。
+var SALARY_MIDS = SALARY_BINS.map(function (b, i) {
+  if (i === 0) return 28500;
+  if (i === SALARY_BINS.length - 1) return 81500;
+  var lo = Number(b.split('–')[0].replace(/,/g, '')), hi = Number(b.split('–')[1].replace(/,/g, ''));
+  return Math.round((lo + hi + 1) / 2);
+});
+function meanSalary(idx) {
+  var sum = 0;
+  idx.forEach(function (i) { sum += SALARY_MIDS[i]; });
+  return Math.round(sum / idx.length / 100) * 100;
 }
 
 function salaryGroup(rows, qid, options) {
@@ -388,7 +399,8 @@ function salaryGroup(rows, qid, options) {
       q1: SALARY_BINS[binQuantile(idx, 0.25)],
       q3: SALARY_BINS[binQuantile(idx, 0.75)],
       medianIdx: binQuantile(idx, 0.5), q1Idx: binQuantile(idx, 0.25), q3Idx: binQuantile(idx, 0.75),
-      belowShare: idx.filter(function (i) { return i <= belowMax; }).length / idx.length
+      belowShare: idx.filter(function (i) { return i <= belowMax; }).length / idx.length,
+      mean: meanSalary(idx)
     };
   });
 }
@@ -454,7 +466,7 @@ function aggregate(rows, now) {
     out.groups[k] = salaryGroup(full, k, groupOptions(k));
   });
   out.dists = {};
-  ['D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D1h', 'E1', 'E2', 'E3', 'E4', 'F2', 'F3',
+  ['D2', 'D4', 'D5', 'D6', 'D7', 'D8', 'D1h', 'E1', 'E2', 'E3', 'E4', 'F3',
     'G1', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
     out.dists[id] = distribution(rows, id);
   });
