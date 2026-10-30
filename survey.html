@@ -110,7 +110,7 @@ pre { white-space: pre-wrap; word-break: break-all; font-size: .8125rem; text-al
   <div id="done" class="card done" hidden></div>
 </div>
 
-<script src="shared.js?v=12"></script>
+<script src="shared.js?v=13"></script>
 <script>
 // 部署 Apps Script 後，把網頁應用程式網址貼在這裡
 var API_URL = 'https://script.google.com/macros/s/AKfycbzoyYdV0WHo1zUfR9Jk5Ui2FLLm10GFL7DZblrUFe_sp-xd093MlD08Bd3K0sTMLEhe/exec';
@@ -141,8 +141,18 @@ function setAnswer(q, value) {
   save(DRAFT_KEY, answers);
   // 有題目依這題決定要不要顯示、或正在顯示錯誤時才重畫整頁。
   // 其他情況只同步這題的勾選狀態：點擊當下換掉整頁元素，部分 App 內建瀏覽器會吃掉下一次點選，複選題就像只能單選。
-  if (showErrors || QUESTIONS.some(function (x) { return x.showIf && x.showIf.q === q.id; })) render();
+  if (showErrors || QUESTIONS.some(function (x) {
+    return (x.showIf && x.showIf.q === q.id) || (x.multi && x.multi.when.q === q.id);
+  })) render();
   else syncInputs(q);
+}
+
+// 工作型態改了，單選、複選版本之間的答案跟著轉換
+function fitAnswer(q) {
+  var v = answers[q.id];
+  if (!q.multi || !isFilled(v)) return;
+  if (isMulti(q, answers) && !Array.isArray(v)) answers[q.id] = [v];
+  else if (!isMulti(q, answers) && Array.isArray(v)) answers[q.id] = v.length === 1 ? v[0] : '';
 }
 
 function syncInputs(q) {
@@ -165,6 +175,7 @@ function toggleCheckbox(q, option, checked) {
 }
 
 function renderQuestion(q, err) {
+  q = askedAs(q, answers);
   var name = 'q-' + q.id;
   var box = el('div', { class: 'q' + (err ? ' has-err' : ''), id: 'wrap-' + q.id });
   var label = el('label', { class: 'q-label', for: q.type === 'select' || q.type === 'text' ? name : null, text: q.label });
@@ -221,11 +232,12 @@ function renderQuestion(q, err) {
 function onPage(q) { return !q.consent && isVisible(q, answers); }
 
 function visibleIds(section) {
-  return section.questions.filter(onPage).map(function (q) { return q.id; });
+  return pageQuestions(section).filter(onPage).map(function (q) { return q.id; });
 }
 
 function render() {
   var section = SECTIONS[step];
+  section.questions.forEach(fitAnswer);
   var ids = visibleIds(section);
   var errs = {};
   if (showErrors) validateAnswers(answers, ids).forEach(function (e) { errs[e.id] = errs[e.id] || e.message; });
@@ -233,7 +245,7 @@ function render() {
   var focusId = document.activeElement && document.activeElement.id;
   page.innerHTML = '';
   page.appendChild(el('h2', { text: section.title, style: 'margin:0 0 4px;font-size:1.25rem' }));
-  section.questions.forEach(function (q) {
+  pageQuestions(section).forEach(function (q) {
     if (onPage(q)) page.appendChild(renderQuestion(q, errs[q.id]));
   });
   if (focusId) { var f = document.getElementById(focusId); if (f) f.focus(); }
@@ -273,6 +285,7 @@ function goNext() {
 }
 
 function submit() {
+  QUESTIONS.forEach(fitAnswer);
   var all = validateAnswers(answers);
   if (all.length) {
     for (var i = 0; i < SECTIONS.length; i++) {

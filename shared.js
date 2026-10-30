@@ -33,6 +33,7 @@ var SALARY_BINS = (function () {
 // 自由接案的人跳過受僱才有的題目（單位、加給、年終、回捐、加班等）
 var FREELANCE = '自由接案';
 var NOT_FREELANCE = { q: 'A4', ne: FREELANCE };
+var FREELANCE_ONLY = { q: 'A4', eq: FREELANCE };
 
 // 有個案量的第一線職務（案量題只問這些人）
 var FRONTLINE = ['社工員、社工專員或個案管理員', '社工助理', '學校社工、輔導人員或資源教室人員'];
@@ -53,7 +54,9 @@ var SECTIONS = [
         options: ['現職', '一年內離開的前一份工作', '超過一年前的工作'],
         endIf: '超過一年前的工作',
         hint: '超過一年的工作待遇變動太大，這次先不收。' },
-      { id: 'A2', label: '工作所在縣市', type: 'select', required: true, options: COUNTIES },
+      // 自由接案常跨縣市接案，改成複選；頁面上排在工作型態後面（試算表欄位位置不變）
+      { id: 'A2', label: '工作所在縣市', type: 'select', required: true, options: COUNTIES, displayAfter: 'A4',
+        multi: { when: FREELANCE_ONLY, label: '接案的縣市（可複選）', hint: '有接案的縣市都勾選。' } },
       { id: 'A3', label: '年齡', type: 'radio', required: true,
         options: ['24 歲以下', '25–29 歲', '30–34 歲', '35–39 歲', '40–44 歲', '45–49 歲', '50–54 歲', '55–59 歲', '60–64 歲', '65 歲以上'] },
       { id: 'A5', label: '性別', type: 'radio', required: true, options: ['女', '男', '其他', '不想回答'] },
@@ -82,7 +85,8 @@ var SECTIONS = [
         '學校社工或學生輔導', '司法、觀護或更生保護', '社會救助、脫貧或無家者服務',
         '原住民族家庭服務', '就業服務或職業重建', '社區工作或社區發展',
         '募款、倡議或行政', '其他'],
-        hint: '只問方案類型，不問單位名稱。' },
+        hint: '只問方案類型，不問單位名稱。',
+        multi: { when: FREELANCE_ONLY, label: '接案的服務方案類型（可複選）', hint: '有接的類型都勾選。只問方案類型，不問單位名稱。' } },
       { id: 'B2', label: '薪資經費來源', type: 'select', required: true, options: [
         '縣市政府自辦', '政府標案或補助案', '公益彩券補助', '聯合勸募補助', '其他財源補助', '單位自籌', '我不知道'],
         // 2026-10-30 修正錯字；舊寫法視為同一個選項（已收到的回覆、還開著舊頁面的人）
@@ -207,6 +211,36 @@ function findQuestion(id) {
   return null;
 }
 
+// 題目在頁面上的順序；試算表欄位固定照 QUESTIONS 的順序，不能動
+function pageQuestions(section) {
+  var list = section.questions.filter(function (q) { return !q.displayAfter; });
+  section.questions.forEach(function (q) {
+    if (!q.displayAfter) return;
+    var at = list.map(function (x) { return x.id; }).indexOf(q.displayAfter);
+    list.splice(at + 1, 0, q);
+  });
+  return list;
+}
+
+// 有 multi 的題目：符合條件的人改成複選（同一欄，以「、」串起來）
+function isMulti(q, answers) {
+  if (q.type === 'checkbox') return true;
+  return !!q.multi && answers[q.multi.when.q] === q.multi.when.eq;
+}
+
+// 這個人實際看到的題目版本
+function askedAs(q, answers) {
+  if (!q.multi || !isMulti(q, answers)) return q;
+  var copy = {};
+  for (var k in q) copy[k] = q[k];
+  copy.type = 'checkbox';
+  copy.label = q.multi.label;
+  copy.hint = q.multi.hint;
+  return copy;
+}
+
+function asList(v) { return Array.isArray(v) ? v : (isFilled(v) ? [v] : []); }
+
 function isFilled(v) {
   if (v === undefined || v === null) return false;
   if (Array.isArray(v)) return v.length > 0;
@@ -234,7 +268,10 @@ function validateAnswers(answers, onlyIds) {
   QUESTIONS.forEach(function (q) {
     if (onlyIds && onlyIds.indexOf(q.id) < 0) return;
     if (!isVisible(q, answers)) return;
+    q = askedAs(q, answers);
     var v = answers[q.id];
+    // 改成複選前打開的頁面會送單一字串，照樣收
+    if (q.multi && q.type === 'checkbox') v = asList(v);
     if (!isFilled(v)) {
       if (q.required) errors.push({ id: q.id, message: '這題還沒填' });
       return;
@@ -282,10 +319,32 @@ function rowValuesToAnswers(values) {
   var a = {};
   QUESTIONS.forEach(function (q, i) {
     var v = values[i] === undefined || values[i] === null ? '' : String(values[i]);
-    if (q.type === 'checkbox') a[q.id] = v ? v.split('、') : [];
+    if (q.type === 'checkbox') a[q.id] = splitOptions(q, v);
     else a[q.id] = canonical(q, v);
   });
+  QUESTIONS.forEach(function (q) {
+    if (q.multi && isMulti(q, a)) a[q.id] = splitOptions(q, a[q.id]);
+  });
   return a;
+}
+
+// 依選項比對切開複選答案：選項本身含「、」（如「家暴、性侵害、性剝削防治」）也不會被切斷
+function splitOptions(q, v) {
+  if (!v) return [];
+  var known = q.options.concat(Object.keys(q.aliases || {})).sort(function (x, y) { return y.length - x.length; });
+  var out = [], rest = v;
+  while (rest) {
+    var hit = null;
+    for (var i = 0; i < known.length && !hit; i++) {
+      var o = known[i];
+      if (rest.indexOf(o) === 0 && (rest.length === o.length || rest.charAt(o.length) === '、')) hit = o;
+    }
+    // 不認得的內容照「、」切，保留原樣
+    if (!hit) { var cut = rest.indexOf('、'); hit = cut < 0 ? rest : rest.slice(0, cut); }
+    out.push(canonical(q, hit));
+    rest = rest.slice(hit.length + 1);
+  }
+  return out;
 }
 
 /* ---------- 統計 ---------- */
@@ -422,10 +481,11 @@ function distribution(rows, qid) {
   var base = rows.filter(function (r) { return isVisible(q, r) && isFilled(r[qid]); });
   if (base.length < MIN_CELL) return { question: q.label, suppressed: true };
   return {
-    question: q.label, n: base.length, multi: q.type === 'checkbox',
+    question: q.label, n: base.length,
+    multi: q.type === 'checkbox' || base.some(function (r) { return Array.isArray(r[qid]) && r[qid].length > 1; }),
     items: q.options.map(function (o) {
       var k = base.filter(function (r) {
-        return q.type === 'checkbox' ? r[qid].indexOf(o) >= 0 : r[qid] === o;
+        return Array.isArray(r[qid]) ? r[qid].indexOf(o) >= 0 : r[qid] === o;
       }).length;
       return { label: o, count: k, share: k / base.length };
     })
