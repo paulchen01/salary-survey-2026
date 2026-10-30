@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2026 社福人員薪資調查</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5f2; --card: #ffffff; --text: #1d1d1b; --muted: #5d5c57; --line: #dcdad3;
+  --accent: #2a78d6; --accent-ink: #ffffff; --soft: #e8f0fb; --error: #c23b3a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141413; --card: #1f1f1d; --text: #f0efec; --muted: #b5b4ac; --line: #3a3a37;
+    --accent: #3987e5; --accent-ink: #ffffff; --soft: #1d2b3d; --error: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141413; --card: #1f1f1d; --text: #f0efec; --muted: #b5b4ac; --line: #3a3a37;
+  --accent: #3987e5; --accent-ink: #ffffff; --soft: #1d2b3d; --error: #e66767;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; }
+.wrap { max-width: 680px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.progress > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.step-label { color: var(--muted); font-size: .875rem; margin-bottom: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+.q { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.q:last-child { border-bottom: 0; }
+.q-label { font-weight: 600; display: block; margin-bottom: 4px; }
+.q-hint { color: var(--muted); font-size: .875rem; margin: 0 0 8px; }
+.req { color: var(--error); margin-left: 2px; }
+.opts { display: grid; gap: 8px; margin-top: 8px; }
+.opt { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 8px; cursor: pointer; min-height: 44px; }
+.opt:has(input:checked) { border-color: var(--accent); background: var(--soft); }
+.opt input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); flex: none; }
+select, textarea { width: 100%; font: inherit; color: var(--text); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-height: 44px; }
+textarea { min-height: 140px; resize: vertical; }
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
+.scale .opt { justify-content: center; padding: 10px 0; }
+.scale-ends { display: flex; justify-content: space-between; color: var(--muted); font-size: .8125rem; margin-top: 4px; }
+.err { color: var(--error); font-size: .875rem; margin-top: 6px; }
+.q.has-err .q-label { color: var(--error); }
+.nav { display: flex; gap: 12px; justify-content: space-between; margin-top: 20px; }
+button { font: inherit; border-radius: 8px; padding: 10px 20px; min-height: 44px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+.notice { background: var(--soft); border-radius: 8px; padding: 12px 14px; font-size: .9375rem; margin-bottom: 16px; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.done { text-align: center; padding: 32px 16px; }
+.done .code { font-size: 1.5rem; font-weight: 700; letter-spacing: .1em; margin: 8px 0 16px; }
+a { color: var(--accent); }
+pre { white-space: pre-wrap; word-break: break-all; font-size: .8125rem; text-align: left; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2026 台灣社會福利人員薪資待遇調查</h1>
+  <p class="sub">飽螺的社工甘苦便條紙 · 匿名填答，約 5 分鐘</p>
+
+  <div id="intro" class="card">
+    <p>這份問卷不收單位名稱、姓名或聯絡方式。薪資、年資都用區間勾選，不用打金額。</p>
+    <p>公開的統計只顯示縣市、機構類型、服務方案、職務層級和薪資區間；人數少於 5 人的組合會遮蔽。留言要經過審核才會公開。</p>
+    <p>薪資請填 <strong>2026 年 10 月</strong>（或最近一個完整月份）的數字。</p>
+    <div class="nav"><span></span><button class="primary" id="start">開始填寫</button></div>
+  </div>
+
+  <div id="form" hidden>
+    <div class="progress"><div id="bar"></div></div>
+    <div class="step-label" id="stepLabel"></div>
+    <div id="demo" class="notice" hidden>示範模式：尚未設定後端網址，送出時只會在畫面上顯示資料，不會儲存。</div>
+    <div class="card" id="page"></div>
+    <label class="hp" aria-hidden="true">網站 <input id="website" tabindex="-1" autocomplete="off"></label>
+    <div class="nav">
+      <button id="back">上一頁</button>
+      <button class="primary" id="next">下一頁</button>
+    </div>
+  </div>
+
+  <div id="done" class="card done" hidden></div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+// 部署 Apps Script 後，把網頁應用程式網址貼在這裡
+var API_URL = 'https://script.google.com/macros/s/AKfycbzoyYdV0WHo1zUfR9Jk5Ui2FLLm10GFL7DZblrUFe_sp-xd093MlD08Bd3K0sTMLEhe/exec';
+
+var DRAFT_KEY = 'salary-survey-' + SURVEY_YEAR + '-draft';
+var DONE_KEY = 'salary-survey-' + SURVEY_YEAR + '-done';
+var answers = {};
+var step = 0;
+var showErrors = false;
+
+function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+function drop(key) { try { localStorage.removeItem(key); } catch (e) {} }
+
+function el(tag, attrs, children) {
+  var n = document.createElement(tag);
+  for (var k in attrs || {}) {
+    if (k === 'text') n.textContent = attrs[k];
+    else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(function (c) { if (c) n.appendChild(c); });
+  return n;
+}
+
+function setAnswer(q, value) {
+  answers[q.id] = value;
+  save(DRAFT_KEY, answers);
+  render();
+}
+
+function toggleCheckbox(q, option, checked) {
+  var cur = (answers[q.id] || []).slice();
+  if (checked) {
+    if (q.exclusive && q.exclusive.indexOf(option) >= 0) cur = [option];
+    else cur = cur.filter(function (x) { return !q.exclusive || q.exclusive.indexOf(x) < 0; }).concat([option]);
+    if (q.max && cur.length > q.max) cur = cur.slice(cur.length - q.max);
+  } else {
+    cur = cur.filter(function (x) { return x !== option; });
+  }
+  setAnswer(q, cur);
+}
+
+function renderQuestion(q, err) {
+  var name = 'q-' + q.id;
+  var box = el('div', { class: 'q' + (err ? ' has-err' : ''), id: 'wrap-' + q.id });
+  var label = el('label', { class: 'q-label', for: q.type === 'select' || q.type === 'text' ? name : null, text: q.label });
+  if (q.type !== 'select' && q.type !== 'text') label.removeAttribute('for');
+  if (q.required) label.appendChild(el('span', { class: 'req', text: '*', 'aria-hidden': 'true' }));
+  box.appendChild(label);
+  if (q.hint) box.appendChild(el('p', { class: 'q-hint', text: q.hint }));
+  var v = answers[q.id];
+
+  if (q.type === 'select') {
+    var sel = el('select', { id: name, onchange: function (e) { setAnswer(q, e.target.value); } });
+    sel.appendChild(el('option', { value: '', text: '請選擇' }));
+    q.options.forEach(function (o) {
+      var opt = el('option', { value: o, text: o });
+      if (v === o) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    box.appendChild(sel);
+  } else if (q.type === 'text') {
+    var ta = el('textarea', { id: name, maxlength: String(q.maxLength || 1000) });
+    ta.value = v || '';
+    ta.addEventListener('change', function (e) { setAnswer(q, e.target.value); });
+    ta.addEventListener('input', function (e) { answers[q.id] = e.target.value; save(DRAFT_KEY, answers); });
+    box.appendChild(ta);
+  } else if (q.type === 'scale') {
+    var grid = el('div', { class: 'scale', role: 'radiogroup' });
+    q.options.forEach(function (o) {
+      var input = el('input', { type: 'radio', name: name, value: o, onchange: function () { setAnswer(q, o); } });
+      if (v === o) input.checked = true;
+      grid.appendChild(el('label', { class: 'opt' }, [input, el('span', { text: o })]));
+    });
+    box.appendChild(grid);
+    box.appendChild(el('div', { class: 'scale-ends' }, [el('span', { text: '1 ' + q.scaleLabels[0] }), el('span', { text: '5 ' + q.scaleLabels[1] })]));
+  } else {
+    var list = el('div', { class: 'opts', role: q.type === 'radio' ? 'radiogroup' : 'group' });
+    q.options.forEach(function (o) {
+      var input;
+      if (q.type === 'radio') {
+        input = el('input', { type: 'radio', name: name, value: o, onchange: function () { setAnswer(q, o); } });
+        if (v === o) input.checked = true;
+      } else {
+        input = el('input', { type: 'checkbox', value: o, onchange: function (e) { toggleCheckbox(q, o, e.target.checked); } });
+        if (Array.isArray(v) && v.indexOf(o) >= 0) input.checked = true;
+      }
+      list.appendChild(el('label', { class: 'opt' }, [input, el('span', { text: o })]));
+    });
+    box.appendChild(list);
+  }
+  if (err) box.appendChild(el('div', { class: 'err', text: err }));
+  return box;
+}
+
+function visibleIds(section) {
+  return section.questions.filter(function (q) { return isVisible(q, answers); }).map(function (q) { return q.id; });
+}
+
+function render() {
+  var section = SECTIONS[step];
+  var ids = visibleIds(section);
+  var errs = {};
+  if (showErrors) validateAnswers(answers, ids).forEach(function (e) { errs[e.id] = errs[e.id] || e.message; });
+  var page = document.getElementById('page');
+  var focusId = document.activeElement && document.activeElement.id;
+  page.innerHTML = '';
+  page.appendChild(el('h2', { text: section.title, style: 'margin:0 0 4px;font-size:1.25rem' }));
+  section.questions.forEach(function (q) {
+    if (isVisible(q, answers)) page.appendChild(renderQuestion(q, errs[q.id]));
+  });
+  if (focusId) { var f = document.getElementById(focusId); if (f) f.focus(); }
+  document.getElementById('bar').style.width = ((step + 1) / SECTIONS.length * 100) + '%';
+  document.getElementById('stepLabel').textContent = '第 ' + (step + 1) + ' / ' + SECTIONS.length + ' 頁';
+  document.getElementById('back').disabled = step === 0;
+  var ended = answers.A1 === '超過一年前的工作';
+  var next = document.getElementById('next');
+  next.textContent = ended ? '結束' : (step === SECTIONS.length - 1 ? '送出' : '下一頁');
+}
+
+function goNext() {
+  if (answers.A1 === '超過一年前的工作') {
+    drop(DRAFT_KEY);
+    showDone('<h2>謝謝你</h2><p>這次只收一年內的工作待遇，歡迎轉傳給其他社工夥伴。</p>');
+    return;
+  }
+  var ids = visibleIds(SECTIONS[step]);
+  var errs = validateAnswers(answers, ids);
+  if (errs.length) {
+    showErrors = true;
+    render();
+    var first = document.getElementById('wrap-' + errs[0].id);
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  showErrors = false;
+  if (step < SECTIONS.length - 1) {
+    step++;
+    render();
+    window.scrollTo(0, 0);
+  } else {
+    submit();
+  }
+}
+
+function submit() {
+  var all = validateAnswers(answers);
+  if (all.length) {
+    for (var i = 0; i < SECTIONS.length; i++) {
+      if (SECTIONS[i].questions.some(function (q) { return q.id === all[0].id; })) { step = i; break; }
+    }
+    showErrors = true;
+    render();
+    return;
+  }
+  var payload = { answers: answers, website: document.getElementById('website').value };
+  var btn = document.getElementById('next');
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+  if (!API_URL) {
+    showDone('<h2>示範送出完成</h2><p>正式上線後，這些資料會寫進你的試算表：</p><pre></pre>', JSON.stringify(payload.answers, null, 2));
+    return;
+  }
+  fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (!res.ok) throw new Error(res.error || '送出失敗');
+      drop(DRAFT_KEY);
+      save(DONE_KEY, { receipt: res.receipt, at: Date.now() });
+      showDone('<h2>送出成功，謝謝你</h2><p>你的收據碼</p><div class="code"></div><p>統計結果會即時更新，<a href="dashboard.html">看目前的統計</a>。</p>', null, res.receipt);
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = '再試一次';
+      alert('送出失敗：' + err.message + '\n你填的答案還在，請稍後再試。');
+    });
+}
+
+function showDone(html, pre, code) {
+  document.getElementById('form').hidden = true;
+  document.getElementById('intro').hidden = true;
+  var d = document.getElementById('done');
+  d.innerHTML = html;
+  if (pre) d.querySelector('pre').textContent = pre;
+  if (code) d.querySelector('.code').textContent = code;
+  d.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+document.getElementById('start').addEventListener('click', function () {
+  document.getElementById('intro').hidden = true;
+  document.getElementById('form').hidden = false;
+  document.getElementById('demo').hidden = !!API_URL;
+  render();
+});
+document.getElementById('back').addEventListener('click', function () {
+  if (step > 0) { step--; showErrors = false; render(); window.scrollTo(0, 0); }
+});
+document.getElementById('next').addEventListener('click', goNext);
+
+answers = load(DRAFT_KEY) || {};
+var doneBefore = load(DONE_KEY);
+if (doneBefore) {
+  var intro = document.getElementById('intro');
+  intro.insertBefore(el('p', { class: 'notice', text: '這個瀏覽器已經填過一次（收據碼 ' + doneBefore.receipt + '）。每個人填一次就好，請不要重複填寫。' }), intro.firstChild);
+}
+</script>
+</body>
+</html>

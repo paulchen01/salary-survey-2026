@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2026 社福人員薪資統計</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5f2; --card: #fcfcfb; --text: #0b0b0b; --text-2: #52514e; --muted: #7a7973;
+  --line: #e2e0d9; --grid: #ecebe6; --series-1: #2a78d6; --soft: #e8f0fb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211; --card: #1a1a19; --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+    --line: #34342f; --grid: #2a2a27; --series-1: #3987e5; --soft: #1d2b3d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211; --card: #1a1a19; --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+  --line: #34342f; --grid: #2a2a27; --series-1: #3987e5; --soft: #1d2b3d;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.55 system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.5rem; margin: 0; }
+h2 { font-size: 1.125rem; margin: 0 0 4px; }
+.meta { color: var(--text-2); margin: 4px 0 16px; font-size: .875rem; }
+.banner { background: var(--soft); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: .9rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.tile .k { color: var(--text-2); font-size: .8125rem; }
+.tile .v { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tile .v.small { font-size: 1.05rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+.lead { color: var(--text-2); margin: 0 0 14px; font-size: .875rem; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 820px) { .row2 { grid-template-columns: 1fr; } }
+.bars { display: grid; grid-template-columns: max-content 1fr max-content; gap: 3px 10px; align-items: center; font-size: .8125rem; }
+.bars .lab { color: var(--text-2); white-space: nowrap; }
+.bars .track { height: 14px; position: relative; }
+.bars .fill { height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 1px; }
+.bars .num { color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; }
+.bars .sep { grid-column: 1 / -1; border-top: 1px dashed var(--muted); margin: 4px 0; color: var(--muted); font-size: .75rem; padding-top: 2px; }
+.bars [data-tip] { cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.seg button { font: inherit; font-size: .8125rem; border: 0; background: transparent; color: var(--text-2); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--soft); color: var(--text); font-weight: 600; }
+select, input[type=search] { font: inherit; font-size: .875rem; color: var(--text); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--grid); }
+th { color: var(--text-2); font-weight: 600; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+td.sup { color: var(--muted); }
+.table-scroll { overflow-x: auto; }
+.grid-dists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.dist h3 { font-size: .9375rem; margin: 0 0 2px; }
+.dist .base { color: var(--muted); font-size: .75rem; margin-bottom: 8px; }
+.comments { display: grid; gap: 10px; }
+.comment { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.comment .t { white-space: pre-wrap; }
+.comment .m { color: var(--muted); font-size: .75rem; margin-top: 6px; }
+.comment .r { margin-top: 8px; padding: 8px 10px; background: var(--soft); border-radius: 8px; font-size: .875rem; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.more { font: inherit; margin-top: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text);
+  border-radius: 8px; padding: 8px 16px; cursor: pointer; }
+svg text { fill: var(--text-2); font-size: 11px; }
+.tip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); font-size: .8125rem;
+  padding: 6px 9px; border-radius: 6px; max-width: 260px; z-index: 10; display: none; }
+.note { color: var(--muted); font-size: .8125rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2026 台灣社會福利人員薪資待遇統計</h1>
+  <div class="meta" id="meta">讀取中…</div>
+  <div class="banner" id="demo" hidden>目前顯示的是<strong>示範資料</strong>（隨機產生，不是真實回覆）。設定後端網址後就會換成即時統計。</div>
+  <div class="banner" id="few" hidden>目前回覆還不到 5 份，累積更多之後才會顯示統計。</div>
+
+  <div id="content" hidden>
+    <div class="tiles" id="tiles"></div>
+
+    <div class="row2">
+      <div class="card">
+        <h2>月薪分布（全職）</h2>
+        <p class="lead" id="distLead"></p>
+        <div class="bars" id="salaryBars"></div>
+      </div>
+      <div class="card">
+        <h2>年資與月薪</h2>
+        <p class="lead">點是中位數所在區間，線段是中間一半的人落在的範圍。</p>
+        <div class="seg" role="group" aria-label="年資類型">
+          <button data-y="C3" aria-pressed="true">社工總年資</button>
+          <button data-y="C4" aria-pressed="false">現職年資</button>
+        </div>
+        <div id="yearsChart"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>分組比較（全職月薪）</h2>
+      <div class="toolbar">
+        <label>依 <select id="groupBy">
+          <option value="A2">縣市</option>
+          <option value="B1">機構類型</option>
+          <option value="B1b">服務方案類型</option>
+          <option value="B2">薪資經費來源</option>
+          <option value="B3">職務層級</option>
+          <option value="B4">保護業務</option>
+        </select></label>
+        <label>排序 <select id="sortBy">
+          <option value="order">選項順序</option>
+          <option value="median">中位數高到低</option>
+          <option value="n">人數多到少</option>
+        </select></label>
+      </div>
+      <div class="table-scroll"><table id="groupTable"></table></div>
+      <p class="note">人數少於 5 人的組別不顯示，避免數字不穩定或被認出。</p>
+    </div>
+
+    <div class="card">
+      <h2>勞動條件與留任</h2>
+      <p class="lead">複選題的比例是「勾選這項的人 ÷ 回答這題的人」，加總會超過 100%。</p>
+      <div class="grid-dists" id="dists"></div>
+    </div>
+
+    <div class="card">
+      <h2>留言板</h2>
+      <p class="lead">填答者同意公開、並經過審核的留言。</p>
+      <div class="toolbar"><input type="search" id="q" placeholder="搜尋留言" aria-label="搜尋留言"> <span class="note" id="cCount"></span></div>
+      <div class="comments" id="comments"></div>
+      <button class="more" id="more" hidden>顯示更多</button>
+    </div>
+
+    <p class="note">自願填答的樣本，不代表全體社工。月薪是含加給、扣勞健保前的應發金額，以 3,000 元為一格勾選。</p>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script src="shared.js"></script>
+<script>
+// 部署 Apps Script 後，把網頁應用程式網址貼在這裡
+var API_URL = 'https://script.google.com/macros/s/AKfycbzoyYdV0WHo1zUfR9Jk5Ui2FLLm10GFL7DZblrUFe_sp-xd093MlD08Bd3K0sTMLEhe/exec';
+var REFRESH_MS = 60000;
+
+var stats = null;
+var yearKey = 'C3';
+var commentLimit = 20;
+
+function pct(x) { return (x * 100).toFixed(x < 0.1 ? 1 : 0) + '%'; }
+function el(tag, attrs, text) {
+  var n = document.createElement(tag);
+  for (var k in attrs || {}) n.setAttribute(k, attrs[k]);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+/* ---------- 示範資料 ---------- */
+function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function weighted(arr, w) {
+  var s = w.reduce(function (a, b) { return a + b; }, 0), r = Math.random() * s;
+  for (var i = 0; i < arr.length; i++) { r -= w[i]; if (r <= 0) return arr[i]; }
+  return arr[arr.length - 1];
+}
+function demoRows(n) {
+  var sample = ['案量真的太多，希望有合理上限。', '薪水有照新制調，但晉階標準比政府嚴。', '督導很支持，是我還留下來的原因。',
+    '加班常常不能報，只能自己吞。', '希望責任險能真的普及到每個人。', '新人起薪比以前好，但資深的人卡在第七階。'];
+  var rows = [];
+  for (var i = 0; i < n; i++) {
+    var a = {};
+    QUESTIONS.forEach(function (q) {
+      if (q.type === 'checkbox') {
+        var pick = q.options.filter(function (o) { return (!q.exclusive || q.exclusive.indexOf(o) < 0) && Math.random() < 0.3; });
+        a[q.id] = pick.length ? pick.slice(0, q.max || 9) : (q.exclusive ? [q.exclusive[0]] : []);
+      } else if (q.type === 'text') a[q.id] = '';
+      else a[q.id] = rand(q.options);
+    });
+    a.A1 = weighted(['現職', '一年內離開的前一份工作'], [9, 1]);
+    a.A4 = weighted(['全職', '兼職'], [19, 1]);
+    a.A2 = weighted(COUNTIES, COUNTIES.map(function (c, k) { return k < 8 ? 6 : (k < 15 ? 3 : 0.4); }));
+    var y = weighted([0, 1, 2, 3, 4, 5, 6], [10, 22, 18, 14, 16, 10, 10]);
+    a.C3 = YEAR_BINS[y];
+    a.C4 = YEAR_BINS[Math.max(0, y - weighted([0, 1, 2], [6, 3, 1]))];
+    var lead = a.B3 !== '第一線工作人員' && a.B3 !== '其他' ? 2 : 0;
+    var idx = Math.max(0, Math.min(SALARY_BINS.length - 1, Math.round(3 + y * 0.6 + lead + (Math.random() * 4 - 2))));
+    a.D1 = SALARY_BINS[idx];
+    a.D3 = weighted(findQuestion('D3').options, [8, 1, 0.6, 0.3, 0.1]);
+    if (Math.random() < 0.2) { a.H4 = rand(sample); a.H5 = '同意匿名公開（經審核）'; a._approved = Math.random() < 0.8; }
+    if (a._approved && Math.random() < 0.3) a._reply = '謝謝分享，辛苦了！';
+    a._time = new Date(2026, 10, 1 + Math.floor(Math.random() * 20));
+    rows.push(a);
+  }
+  return rows;
+}
+
+/* ---------- 讀資料 ---------- */
+function loadStats() {
+  var demo = !API_URL || /[?&]demo=1/.test(location.search);
+  document.getElementById('demo').hidden = !demo;
+  if (demo) { stats = aggregate(demoRows(420)); render(); return; }
+  fetch(API_URL, { cache: 'no-store' }).then(function (r) { return r.json(); })
+    .then(function (s) { stats = s; render(); })
+    .catch(function () { document.getElementById('meta').textContent = '暫時讀不到資料，稍後會自動重試。'; });
+}
+
+/* ---------- 畫面 ---------- */
+function render() {
+  var s = stats;
+  var t = new Date(s.updatedAt);
+  document.getElementById('meta').textContent = '共 ' + s.total + ' 份回覆（全職 ' + s.fullTime + ' 份）· 更新於 ' +
+    t.toLocaleString('zh-TW', { hour12: false });
+  document.getElementById('few').hidden = !s.tooFew;
+  document.getElementById('content').hidden = !!s.tooFew;
+  if (s.tooFew) return;
+  renderTiles(s);
+  renderSalary(s);
+  renderYears(s);
+  renderGroups(s);
+  renderDists(s);
+  renderComments(s);
+}
+
+function renderTiles(s) {
+  var tiles = [
+    ['全職月薪中位數', s.overall.suppressed ? '—' : s.overall.median, true],
+    ['月薪 38,999 元以下', s.overall.suppressed ? '—' : pct(s.overall.belowShare)],
+    ['有回捐', pct(s.kpi.refundShare)],
+    ['加班無償或不能報', pct(s.kpi.unpaidOvertimeShare)],
+    ['一年內想離職（4–5 分）', pct(s.kpi.leaveShare)],
+    ['一年內遇過威脅或暴力', pct(s.kpi.violenceShare)]
+  ];
+  var box = document.getElementById('tiles');
+  box.innerHTML = '';
+  tiles.forEach(function (x) {
+    var d = el('div', { class: 'tile' });
+    d.appendChild(el('div', { class: 'k' }, x[0]));
+    d.appendChild(el('div', { class: 'v' + (x[2] ? ' small' : '') }, x[1]));
+    box.appendChild(d);
+  });
+}
+
+function barList(container, items, opts) {
+  container.innerHTML = '';
+  var max = Math.max.apply(null, items.map(function (i) { return opts.value(i); }).concat([1e-9]));
+  items.forEach(function (it, k) {
+    if (opts.sepAfter !== undefined && k === opts.sepAfter + 1) {
+      container.appendChild(el('div', { class: 'sep' }, opts.sepText));
+    }
+    var tip = it.label + '：' + opts.tip(it);
+    container.appendChild(el('div', { class: 'lab', 'data-tip': tip }, it.label));
+    var tr = el('div', { class: 'track', 'data-tip': tip });
+    var f = el('div', { class: 'fill' });
+    f.style.width = (opts.value(it) / max * 100) + '%';
+    tr.appendChild(f);
+    container.appendChild(tr);
+    container.appendChild(el('div', { class: 'num', 'data-tip': tip }, opts.text(it)));
+  });
+}
+
+function renderSalary(s) {
+  var total = s.fullTime;
+  var belowIdx = s.salaryBins.indexOf(s.belowStartMaxBin);
+  document.getElementById('distLead').textContent = '中位數落在 ' + s.overall.median + ' 元；中間一半的人在 ' +
+    s.overall.q1 + ' 到 ' + s.overall.q3 + ' 元之間。';
+  barList(document.getElementById('salaryBars'), s.salaryDist, {
+    value: function (i) { return i.count; },
+    text: function (i) { return total ? pct(i.count / total) : '—'; },
+    tip: function (i) { return i.count + ' 人，' + (total ? pct(i.count / total) : '—'); },
+    sepAfter: belowIdx, sepText: '以上為 38,999 元以下（114 年公告起薪 38,898 元）'
+  });
+}
+
+function renderYears(s) {
+  var groups = s.byYears[yearKey];
+  var W = 460, rowH = 44, padL = 78, padR = 12, padT = 8, axisH = 34;
+  var bins = s.salaryBins.length;
+  var shown = groups.filter(function (g) { return !g.suppressed; });
+  var lo = Math.min.apply(null, shown.map(function (g) { return g.q1Idx; }).concat([bins]));
+  var hi = Math.max.apply(null, shown.map(function (g) { return g.q3Idx; }).concat([0]));
+  lo = Math.max(0, lo - 1); hi = Math.min(bins - 1, hi + 1);
+  var H = padT + groups.length * rowH + axisH;
+  var x = function (i) { return padL + (i - lo + 0.5) / (hi - lo + 1) * (W - padL - padR); };
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="年資與月薪中位數">';
+  for (var i = lo; i <= hi; i++) {
+    svg += '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + padT + '" y2="' + (H - axisH) + '" stroke="var(--grid)"/>';
+    if ((i - lo) % 2 === 0) {
+      var lab = s.salaryBins[i].replace(/,000/g, 'k').replace(/,999/g, '').replace(/–(\d+)$/, '');
+      svg += '<text x="' + x(i) + '" y="' + (H - axisH + 16) + '" text-anchor="middle">' + lab.split('–')[0] + '</text>';
+    }
+  }
+  svg += '<text x="' + (W - padR) + '" y="' + (H - 4) + '" text-anchor="end">月薪區間下限（k = 千元）</text>';
+  groups.forEach(function (g, k) {
+    var cy = padT + k * rowH + rowH / 2;
+    svg += '<text x="' + (padL - 8) + '" y="' + (cy + 4) + '" text-anchor="end">' + g.label + '</text>';
+    if (g.suppressed) {
+      svg += '<text x="' + (padL + 4) + '" y="' + (cy + 4) + '" style="fill:var(--muted)">樣本不足</text>';
+      return;
+    }
+    var tip = g.label + '（' + g.n + ' 人）：中位數 ' + g.median + '，中間一半 ' + g.q1 + ' 至 ' + g.q3;
+    svg += '<g data-tip="' + tip + '"><rect x="' + padL + '" y="' + (cy - rowH / 2) + '" width="' + (W - padL - padR) + '" height="' + rowH + '" fill="transparent"/>' +
+      '<line x1="' + x(g.q1Idx) + '" x2="' + x(g.q3Idx) + '" y1="' + cy + '" y2="' + cy + '" stroke="var(--series-1)" stroke-width="2" stroke-linecap="round"/>' +
+      '<circle cx="' + x(g.medianIdx) + '" cy="' + cy + '" r="5" fill="var(--series-1)" stroke="var(--card)" stroke-width="2"/></g>';
+  });
+  svg += '</svg>';
+  document.getElementById('yearsChart').innerHTML = svg;
+}
+
+function renderGroups(s) {
+  var key = document.getElementById('groupBy').value;
+  var sort = document.getElementById('sortBy').value;
+  var rows = s.groups[key].slice();
+  if (sort !== 'order') {
+    rows.sort(function (a, b) {
+      if (a.suppressed !== b.suppressed) return a.suppressed ? 1 : -1;
+      if (a.suppressed) return 0;
+      return sort === 'n' ? b.n - a.n : b.medianIdx - a.medianIdx || b.n - a.n;
+    });
+  }
+  var tb = document.getElementById('groupTable');
+  tb.innerHTML = '<thead><tr><th>組別</th><th class="n">人數</th><th>中位數區間</th><th>中間一半落在</th><th class="n">38,999 以下</th></tr></thead>';
+  var body = document.createElement('tbody');
+  rows.forEach(function (g) {
+    var tr = document.createElement('tr');
+    tr.appendChild(el('td', {}, g.label));
+    if (g.suppressed) {
+      var td = el('td', { class: 'sup', colspan: '4' }, '樣本不足 5 人');
+      tr.appendChild(td);
+    } else {
+      tr.appendChild(el('td', { class: 'n' }, String(g.n)));
+      tr.appendChild(el('td', {}, g.median));
+      tr.appendChild(el('td', {}, g.q1 === g.q3 ? g.q1 : g.q1 + ' 至 ' + g.q3));
+      tr.appendChild(el('td', { class: 'n' }, pct(g.belowShare)));
+    }
+    body.appendChild(tr);
+  });
+  tb.appendChild(body);
+}
+
+function renderDists(s) {
+  var box = document.getElementById('dists');
+  box.innerHTML = '';
+  Object.keys(s.dists).forEach(function (id) {
+    var d = s.dists[id];
+    var card = el('div', { class: 'dist' });
+    card.appendChild(el('h3', {}, d.question));
+    if (d.suppressed) { card.appendChild(el('div', { class: 'base' }, '回答人數不足 5 人')); box.appendChild(card); return; }
+    card.appendChild(el('div', { class: 'base' }, d.n + ' 人回答' + (d.multi ? '（複選）' : '')));
+    var bars = el('div', { class: 'bars' });
+    card.appendChild(bars);
+    barList(bars, d.items, {
+      value: function (i) { return i.share; },
+      text: function (i) { return pct(i.share); },
+      tip: function (i) { return i.count + ' 人，' + pct(i.share); }
+    });
+    box.appendChild(card);
+  });
+}
+
+function renderComments(s) {
+  var q = document.getElementById('q').value.trim();
+  var list = s.comments.filter(function (c) { return !q || c.text.indexOf(q) >= 0 || c.reply.indexOf(q) >= 0; });
+  document.getElementById('cCount').textContent = '共 ' + list.length + ' 則';
+  var box = document.getElementById('comments');
+  box.innerHTML = '';
+  if (!list.length) box.appendChild(el('p', { class: 'note' }, q ? '找不到符合的留言。' : '目前還沒有公開的留言。'));
+  list.slice(0, commentLimit).forEach(function (c) {
+    var d = el('div', { class: 'comment' });
+    d.appendChild(el('div', { class: 't' }, c.text));
+    if (c.reply) d.appendChild(el('div', { class: 'r' }, '飽螺：' + c.reply));
+    if (c.month) d.appendChild(el('div', { class: 'm' }, c.month));
+    box.appendChild(d);
+  });
+  document.getElementById('more').hidden = list.length <= commentLimit;
+}
+
+/* ---------- 互動 ---------- */
+var tipEl = document.getElementById('tip');
+document.addEventListener('mousemove', function (e) {
+  var t = e.target.closest && e.target.closest('[data-tip]');
+  if (!t) { tipEl.style.display = 'none'; return; }
+  tipEl.textContent = t.getAttribute('data-tip');
+  tipEl.style.display = 'block';
+  var x = Math.min(e.clientX + 12, window.innerWidth - tipEl.offsetWidth - 8);
+  tipEl.style.left = x + 'px';
+  tipEl.style.top = (e.clientY + 14) + 'px';
+});
+document.querySelectorAll('.seg button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    yearKey = b.getAttribute('data-y');
+    document.querySelectorAll('.seg button').forEach(function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+    if (stats) renderYears(stats);
+  });
+});
+document.getElementById('groupBy').addEventListener('change', function () { renderGroups(stats); });
+document.getElementById('sortBy').addEventListener('change', function () { renderGroups(stats); });
+document.getElementById('q').addEventListener('input', function () { commentLimit = 20; renderComments(stats); });
+document.getElementById('more').addEventListener('click', function () { commentLimit += 20; renderComments(stats); });
+
+loadStats();
+if (API_URL) setInterval(loadStats, REFRESH_MS);
+</script>
+</body>
+</html>
