@@ -30,6 +30,10 @@ var SALARY_BINS = (function () {
   return bins;
 })();
 
+// 自由接案的人跳過受僱才有的題目（單位、加給、年終、回捐、加班等）
+var FREELANCE = '自由接案';
+var NOT_FREELANCE = { q: 'A4', ne: FREELANCE };
+
 var YEAR_BINS = ['未滿 1 年', '1–2 年', '3–4 年', '5–6 年', '7–10 年', '11–15 年', '16 年以上'];
 
 var SECTIONS = [
@@ -42,7 +46,8 @@ var SECTIONS = [
       { id: 'A2', label: '工作所在縣市', type: 'select', required: true, options: COUNTIES },
       { id: 'A3', label: '年齡', type: 'radio', required: true,
         options: ['24 歲以下', '25–29 歲', '30–34 歲', '35–39 歲', '40–44 歲', '45–49 歲', '50–54 歲', '55–59 歲', '60–64 歲', '65 歲以上'] },
-      { id: 'A4', label: '全職或兼職', type: 'radio', required: true, options: ['全職', '兼職'] }
+      { id: 'A4', label: '工作型態', type: 'radio', required: true, options: ['全職受僱', '兼職受僱', FREELANCE],
+        hint: '自由接案：沒有固定雇主，按案或按時數計酬，含開業的社工師。' }
     ]
   },
   {
@@ -53,7 +58,7 @@ var SECTIONS = [
         '中央政府機關', '公部門警政單位（如少輔會）', '公部門勞政單位（勞工局處、就服站）',
         '司法或矯正機關', '學校或教育單位（含大專校院、學生輔導諮商中心）',
         '醫院或其他醫事機構', '長照、安養或護理機構', '民間社福基金會、協會或團體',
-        '社工師事務所或專業團體', '公司行號、企業基金會', '其他'] },
+        '社工師事務所或專業團體', '公司行號、企業基金會', '其他'], showIf: NOT_FREELANCE },
       // 服務方案類型：參照專科社工師五分科、社安網方案與歷年回覆中常見的職務
       { id: 'B1b', label: '主要服務方案類型', type: 'select', required: true, options: [
         '兒少保護（含家外安置）', '家暴、性侵害、性剝削防治', '社福中心、脆弱家庭服務',
@@ -65,14 +70,14 @@ var SECTIONS = [
         '募款、倡議或行政', '其他'],
         hint: '只問方案類型，不問單位名稱。' },
       { id: 'B2', label: '薪資經費來源', type: 'select', required: true, options: [
-        '縣市政府自辦', '政府標案獲補助案', '公益彩券補助', '聯合勸募補助', '其他財源補助', '單位自籌', '我不知道'] },
+        '縣市政府自辦', '政府標案獲補助案', '公益彩券補助', '聯合勸募補助', '其他財源補助', '單位自籌', '我不知道'], showIf: NOT_FREELANCE },
       { id: 'B3', label: '職務層級', type: 'radio', required: true, options: [
-        '第一線工作人員', '督導', '組長或主任以上', '行政與募款', '其他'] },
-      { id: 'B4', label: '是否為保護業務工作人員', type: 'radio', required: true, options: ['是', '否'] },
-      { id: 'B5', label: '有無領風險加給', type: 'radio', required: true, options: ['有', '無', '不知道'] },
+        '第一線工作人員', '督導', '組長或主任以上', '行政與募款', '其他'], showIf: NOT_FREELANCE },
+      { id: 'B4', label: '是否為保護業務工作人員', type: 'radio', required: true, options: ['是', '否'], showIf: NOT_FREELANCE },
+      { id: 'B5', label: '有無領風險加給', type: 'radio', required: true, options: ['有', '無', '不知道'], showIf: NOT_FREELANCE },
       { id: 'B6', label: '單位規模（所在辦公室、科室或機構）', type: 'radio', required: true,
         options: ['5 人以下', '6–20 人', '21–50 人', '51–100 人', '101 人以上'],
-        hint: '這題不會公開。' }
+        hint: '這題不會公開。', showIf: NOT_FREELANCE }
     ]
   },
   {
@@ -83,30 +88,43 @@ var SECTIONS = [
         options: ['社會工作師執照', '專科社工師', '都沒有'], exclusive: ['都沒有'] },
       { id: 'C3', label: '社工總年資（所有社工工作加起來）', type: 'radio', required: true, options: YEAR_BINS },
       { id: 'C4', label: '現職年資（在這個單位）', type: 'radio', required: true, options: YEAR_BINS,
-        hint: '不能大於社工總年資。' }
+        hint: '不能大於社工總年資。', showIf: NOT_FREELANCE }
     ]
   },
   {
     id: 'D', title: '薪資與福利', questions: [
       { id: 'D1', label: '每月薪水（含各項加給，扣勞健保前的應發金額）', type: 'select', required: true,
-        options: SALARY_BINS, showIf: { q: 'A4', eq: '全職' } },
+        options: SALARY_BINS, showIf: { q: 'A4', eq: '全職受僱' } },
       { id: 'D1h', label: '時薪（兼職填）', type: 'radio', required: true,
         options: ['未滿 200', '200–249', '250–299', '300–349', '350–399', '400 以上'],
-        showIf: { q: 'A4', eq: '兼職' } },
+        showIf: { q: 'A4', eq: '兼職受僱' } },
+      { id: 'D1f', label: '平均每月接案收入（扣除成本前）', type: 'select', required: true,
+        options: SALARY_BINS, showIf: { q: 'A4', eq: FREELANCE } },
+      { id: 'D1r', label: '最常見的鐘點費（每小時）', type: 'radio', required: true,
+        options: ['未滿 800', '800–1,199', '1,200–1,599', '1,600–1,999', '2,000–2,999', '3,000 以上'],
+        showIf: { q: 'A4', eq: FREELANCE } },
+      { id: 'D1s', label: '主要案源（可複選）', type: 'checkbox', required: true, options: [
+        '政府委託方案（訪視、評估、督導）', '民間單位外聘督導或講師', '法院相關（家事調查、監護或收出養評估）',
+        '個人自費（諮商、家族工作）', '企業員工協助方案（EAP）', '學校', '其他'],
+        showIf: { q: 'A4', eq: FREELANCE } },
+      { id: 'D1i', label: '勞健保怎麼保？', type: 'radio', required: true,
+        options: ['職業工會', '掛在其他單位', '自己沒有保', '其他'], showIf: { q: 'A4', eq: FREELANCE } },
       { id: 'D2', label: '有領到哪些加給？（可複選，不用填金額）', type: 'checkbox', required: true,
         options: ['學歷（碩士）', '證照', '專科社工師', '偏遠', '督導職務', '都沒有', '不知道'],
-        exclusive: ['都沒有', '不知道'] },
+        exclusive: ['都沒有', '不知道'], showIf: NOT_FREELANCE },
       { id: 'D3', label: '每月回捐或被要求繳回的金額', type: 'radio', required: true,
-        options: ['沒有', '1,000 以下', '1,000–2,999', '3,000–4,999', '5,000 以上'] },
+        options: ['沒有', '1,000 以下', '1,000–2,999', '3,000–4,999', '5,000 以上'], showIf: NOT_FREELANCE },
       { id: 'D4', label: '2025 年度年終獎金', type: 'radio', required: true,
-        options: ['沒有', '未滿 1 個月', '1 個月', '1.5 個月', '2 個月以上', '依考核不固定'] },
+        options: ['沒有', '未滿 1 個月', '1 個月', '1.5 個月', '2 個月以上', '依考核不固定'], showIf: NOT_FREELANCE },
       { id: 'D5', label: '和去年同月比，你的薪水', type: 'radio', required: true,
-        options: ['增加', '差不多', '減少', '去年不在此職'] },
+        options: ['增加', '差不多', '減少', '去年不在此職'], showIf: NOT_FREELANCE },
       { id: 'D6', label: '2025 年 3% 調薪有沒有反映在你的薪水？', type: 'radio', required: true,
-        options: ['有，全額', '有，部分', '沒有', '我不適用', '不知道'] },
+        options: ['有，全額', '有，部分', '沒有', '我不適用', '不知道'], showIf: NOT_FREELANCE },
       { id: 'D7', label: '有哪些福利？（可複選）', type: 'checkbox', required: false, options: [
         '公會年費補助', '交通或差旅補助', '員工健檢補助', '有調薪空間', '三節獎金或禮金',
-        '員工旅遊或國旅卡', '供餐'] }
+        '員工旅遊或國旅卡', '供餐'], showIf: NOT_FREELANCE },
+      { id: 'D8', label: '除了主要工作，有沒有另外接案？（如外聘督導、講課）', type: 'radio', required: true,
+        options: ['有', '沒有'], showIf: NOT_FREELANCE }
     ]
   },
   {
@@ -114,9 +132,10 @@ var SECTIONS = [
       { id: 'E1', label: '最近一個月，平均每週實際工時', type: 'radio', required: true,
         options: ['40 小時以下', '41–45 小時', '46–50 小時', '51–60 小時', '60 小時以上'] },
       { id: 'E2', label: '加班怎麼處理？（可複選）', type: 'checkbox', required: true,
-        options: ['加班費', '補休', '部分給付', '無償', '不被允許申報', '沒有加班'], exclusive: ['沒有加班'] },
+        options: ['加班費', '補休', '部分給付', '無償', '不被允許申報', '沒有加班'], exclusive: ['沒有加班'],
+        showIf: NOT_FREELANCE },
       { id: 'E3', label: '下班後需要待命（on-call）嗎？', type: 'radio', required: true,
-        options: ['不需要', '需要，有津貼', '需要，沒有津貼'] },
+        options: ['不需要', '需要，有津貼', '需要，沒有津貼'], showIf: NOT_FREELANCE },
       { id: 'E4', label: '目前在案量', type: 'radio', required: true,
         options: ['20 案以下', '21–40 案', '41–60 案', '61 案以上'], showIf: { q: 'B3', eq: '第一線工作人員' } }
     ]
@@ -129,7 +148,7 @@ var SECTIONS = [
       { id: 'F2', label: '回捐是自願的嗎？', type: 'radio', required: true,
         options: ['完全自願', '名義自願但有壓力', '被要求'], showIf: { q: 'D3', ne: '沒有' } },
       { id: 'F3', label: '是否被要求負責募款或業績？', type: 'radio', required: true,
-        options: ['否', '是，沒有獎金', '是，有獎金'] }
+        options: ['否', '是，沒有獎金', '是，有獎金'], showIf: NOT_FREELANCE }
     ]
   },
   {
@@ -137,7 +156,8 @@ var SECTIONS = [
       { id: 'G1', label: '過去 12 個月，你在工作中遇過哪些事？（可複選）', type: 'checkbox', required: true,
         options: ['言語威脅', '肢體暴力', '跟蹤騷擾', '網路攻擊或肉搜', '被提告或被申訴', '都沒有'],
         exclusive: ['都沒有'] },
-      { id: 'G2', label: '單位有替你保執業責任險或提供法律協助嗎？', type: 'radio', required: true,
+      { id: 'G2', label: '有執業責任險或法律協助嗎？', type: 'radio', required: true,
+        hint: '受僱者請回答單位有沒有提供；自由接案請回答自己有沒有。',
         options: ['有責任險', '有法律協助', '兩者都有', '都沒有', '不知道'] },
       { id: 'G3', label: '2026 年剴剴案判決後，你的工作方式有沒有改變？（可複選）', type: 'checkbox', required: true,
         options: ['多寫紀錄自保', '不敢下專業判斷', '更常請示督導', '沒有改變'], exclusive: ['沒有改變'] }
@@ -280,10 +300,12 @@ function distribution(rows, qid) {
 // rows：rowValuesToAnswers 的結果，另可帶 _time（Date）、_approved（布林）、_reply（字串）
 function aggregate(rows, now) {
   rows = rows.filter(function (r) { return r.A1 && r.A1 !== '超過一年前的工作'; });
-  var full = rows.filter(function (r) { return r.A4 === '全職' && SALARY_BINS.indexOf(r.D1) >= 0; });
+  var full = rows.filter(function (r) { return r.A4 === '全職受僱' && SALARY_BINS.indexOf(r.D1) >= 0; });
+  var emp = rows.filter(function (r) { return r.A4 !== FREELANCE; });
+  var free = rows.filter(function (r) { return r.A4 === FREELANCE && SALARY_BINS.indexOf(r.D1f) >= 0; });
   var out = {
     year: SURVEY_YEAR, updatedAt: (now || new Date()).toISOString(),
-    total: rows.length, fullTime: full.length, minCell: MIN_CELL,
+    total: rows.length, fullTime: full.length, freelance: free.length, minCell: MIN_CELL,
     salaryBins: SALARY_BINS, belowStartMaxBin: BELOW_START_MAX_BIN
   };
   if (rows.length < MIN_CELL) { out.tooFew = true; out.comments = []; return out; }
@@ -293,11 +315,13 @@ function aggregate(rows, now) {
   });
   var overall = salaryGroup(full.map(function (r) { return { all: '全部', D1: r.D1 }; }), 'all', ['全部'])[0];
   out.overall = overall;
+  // 回捐、加班只問受僱者，分母也只算受僱者
+  var empN = Math.max(emp.length, 1);
   out.kpi = {
-    refundShare: rows.filter(function (r) { return r.D3 && r.D3 !== '沒有'; }).length / rows.length,
-    unpaidOvertimeShare: rows.filter(function (r) {
+    refundShare: emp.filter(function (r) { return r.D3 && r.D3 !== '沒有'; }).length / empN,
+    unpaidOvertimeShare: emp.filter(function (r) {
       return r.E2.indexOf('無償') >= 0 || r.E2.indexOf('不被允許申報') >= 0;
-    }).length / rows.length,
+    }).length / empN,
     leaveShare: rows.filter(function (r) { return r.H1 === '4' || r.H1 === '5'; }).length / rows.length,
     violenceShare: rows.filter(function (r) { return r.G1.length && r.G1.indexOf('都沒有') < 0; }).length / rows.length
   };
@@ -311,9 +335,15 @@ function aggregate(rows, now) {
     B4: salaryGroup(full, 'B4', findQuestion('B4').options)
   };
   out.dists = {};
-  ['D3', 'D4', 'D6', 'D7', 'E1', 'E2', 'F2', 'G1', 'G2', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
+  ['D3', 'D4', 'D6', 'D7', 'D8', 'E1', 'E2', 'F2', 'G1', 'G2', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
     out.dists[id] = distribution(rows, id);
   });
+  // 自由接案另外統計，不混進受僱月薪
+  out.free = {
+    overall: salaryGroup(free.map(function (r) { return { all: '全部', D1: r.D1f }; }), 'all', ['全部'])[0],
+    dists: {}
+  };
+  ['D1f', 'D1r', 'D1s', 'D1i'].forEach(function (id) { out.free.dists[id] = distribution(rows, id); });
   out.comments = rows.filter(function (r) {
     return r._approved && r.H5 === '同意匿名公開（經審核）' && isFilled(r.H4);
   }).map(function (r) {

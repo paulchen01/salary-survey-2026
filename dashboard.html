@@ -39,8 +39,8 @@ h2 { font-size: 1.125rem; margin: 0 0 4px; }
 .lead { color: var(--text-2); margin: 0 0 14px; font-size: .875rem; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 820px) { .row2 { grid-template-columns: 1fr; } }
-.bars { display: grid; grid-template-columns: max-content 1fr max-content; gap: 3px 10px; align-items: center; font-size: .8125rem; }
-.bars .lab { color: var(--text-2); white-space: nowrap; }
+.bars { display: grid; grid-template-columns: fit-content(12em) 1fr max-content; gap: 3px 10px; align-items: center; font-size: .8125rem; }
+.bars .lab { color: var(--text-2); }
 .bars .track { height: 14px; position: relative; }
 .bars .fill { height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 1px; }
 .bars .num { color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; }
@@ -122,6 +122,12 @@ svg text { fill: var(--text-2); font-size: 11px; }
       <p class="note">人數少於 5 人的組別不顯示，避免數字不穩定或被認出。</p>
     </div>
 
+    <div class="card" id="freeCard">
+      <h2>自由接案</h2>
+      <p class="lead" id="freeLead"></p>
+      <div class="grid-dists" id="freeDists"></div>
+    </div>
+
     <div class="card">
       <h2>勞動條件與留任</h2>
       <p class="lead">複選題的比例是「勾選這項的人 ÷ 回答這題的人」，加總會超過 100%。</p>
@@ -180,7 +186,8 @@ function demoRows(n) {
       else a[q.id] = rand(q.options);
     });
     a.A1 = weighted(['現職', '一年內離開的前一份工作'], [9, 1]);
-    a.A4 = weighted(['全職', '兼職'], [19, 1]);
+    a.A4 = weighted(['全職受僱', '兼職受僱', FREELANCE], [17, 1, 2]);
+    a.D1f = SALARY_BINS[Math.max(0, Math.min(SALARY_BINS.length - 1, Math.round(5 + Math.random() * 8)))];
     a.A2 = weighted(COUNTIES, COUNTIES.map(function (c, k) { return k < 8 ? 6 : (k < 15 ? 3 : 0.4); }));
     var y = weighted([0, 1, 2, 3, 4, 5, 6], [10, 22, 18, 14, 16, 10, 10]);
     a.C3 = YEAR_BINS[y];
@@ -211,7 +218,7 @@ function loadStats() {
 function render() {
   var s = stats;
   var t = new Date(s.updatedAt);
-  document.getElementById('meta').textContent = '共 ' + s.total + ' 份回覆（全職 ' + s.fullTime + ' 份）· 更新於 ' +
+  document.getElementById('meta').textContent = '共 ' + s.total + ' 份回覆（全職受僱 ' + s.fullTime + ' 份、自由接案 ' + (s.freelance || 0) + ' 份）· 更新於 ' +
     t.toLocaleString('zh-TW', { hour12: false });
   document.getElementById('few').hidden = !s.tooFew;
   document.getElementById('content').hidden = !!s.tooFew;
@@ -220,6 +227,7 @@ function render() {
   renderSalary(s);
   renderYears(s);
   renderGroups(s);
+  renderFree(s);
   renderDists(s);
   renderComments(s);
 }
@@ -340,24 +348,41 @@ function renderGroups(s) {
   tb.appendChild(body);
 }
 
+function distCard(d) {
+  var card = el('div', { class: 'dist' });
+  card.appendChild(el('h3', {}, d.question));
+  if (d.suppressed) { card.appendChild(el('div', { class: 'base' }, '回答人數不足 5 人')); return card; }
+  card.appendChild(el('div', { class: 'base' }, d.n + ' 人回答' + (d.multi ? '（複選）' : '')));
+  var bars = el('div', { class: 'bars' });
+  card.appendChild(bars);
+  barList(bars, d.items, {
+    value: function (i) { return i.share; },
+    text: function (i) { return pct(i.share); },
+    tip: function (i) { return i.count + ' 人，' + pct(i.share); }
+  });
+  return card;
+}
+
 function renderDists(s) {
   var box = document.getElementById('dists');
   box.innerHTML = '';
-  Object.keys(s.dists).forEach(function (id) {
-    var d = s.dists[id];
-    var card = el('div', { class: 'dist' });
-    card.appendChild(el('h3', {}, d.question));
-    if (d.suppressed) { card.appendChild(el('div', { class: 'base' }, '回答人數不足 5 人')); box.appendChild(card); return; }
-    card.appendChild(el('div', { class: 'base' }, d.n + ' 人回答' + (d.multi ? '（複選）' : '')));
-    var bars = el('div', { class: 'bars' });
-    card.appendChild(bars);
-    barList(bars, d.items, {
-      value: function (i) { return i.share; },
-      text: function (i) { return pct(i.share); },
-      tip: function (i) { return i.count + ' 人，' + pct(i.share); }
-    });
-    box.appendChild(card);
-  });
+  Object.keys(s.dists).forEach(function (id) { box.appendChild(distCard(s.dists[id])); });
+}
+
+// 自由接案的收入按案計，起伏大，不和受僱月薪合併
+function renderFree(s) {
+  var card = document.getElementById('freeCard');
+  card.hidden = !s.free;
+  if (!s.free) return;
+  var o = s.free.overall, box = document.getElementById('freeDists');
+  box.innerHTML = '';
+  if (o.suppressed) {
+    document.getElementById('freeLead').textContent = '自由接案的回覆還不到 5 份，累積更多之後才會顯示。';
+    return;
+  }
+  document.getElementById('freeLead').textContent = '共 ' + o.n + ' 人。每月接案收入中位數落在 ' + o.median +
+    ' 元，中間一半的人在 ' + o.q1 + ' 到 ' + o.q3 + ' 元之間。這些人沒有算進上面的全職月薪。';
+  ['D1r', 'D1s', 'D1i'].forEach(function (id) { box.appendChild(distCard(s.free.dists[id])); });
 }
 
 function renderComments(s) {

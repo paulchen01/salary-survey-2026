@@ -230,6 +230,8 @@ function goNext() {
   showErrors = false;
   if (step < SECTIONS.length - 1) {
     step++;
+    // 整頁題目都不適用（例如自由接案沒有回捐題）就直接跳過
+    while (step < SECTIONS.length - 1 && !visibleIds(SECTIONS[step]).length) step++;
     render();
     window.scrollTo(0, 0);
   } else {
@@ -288,7 +290,11 @@ document.getElementById('start').addEventListener('click', function () {
   render();
 });
 document.getElementById('back').addEventListener('click', function () {
-  if (step > 0) { step--; showErrors = false; render(); window.scrollTo(0, 0); }
+  if (step > 0) {
+    step--;
+    while (step > 0 && !visibleIds(SECTIONS[step]).length) step--;
+    showErrors = false; render(); window.scrollTo(0, 0);
+  }
 });
 document.getElementById('next').addEventListener('click', goNext);
 
