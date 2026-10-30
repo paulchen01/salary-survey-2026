@@ -275,7 +275,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
 </div>
 <div class="tip" id="tip"></div>
 
-<script src="shared.js?v=9"></script>
+<script src="shared.js?v=10"></script>
 <script>
 // 部署 Apps Script 後，把網頁應用程式網址貼在這裡
 var API_URL = 'https://script.google.com/macros/s/AKfycbzoyYdV0WHo1zUfR9Jk5Ui2FLLm10GFL7DZblrUFe_sp-xd093MlD08Bd3K0sTMLEhe/exec';
@@ -611,8 +611,7 @@ var FINDINGS = [
   { title: '證照、學歷有沒有反映在薪水', topic: '--c-pay', parts: [['C2', 'salary'], ['C1', 'salary']] },
   { title: '經費來源與政策落實', topic: '--c-pay', parts: [['B2', 'raise3'], ['B2', 'refund']] },
   { title: '保護業務有沒有相對的保障', topic: '--c-safe', parts: [['B4', 'riskPay'], ['B4', 'violence']] },
-  { title: '什麼讓人想離職', topic: '--c-stay', parts: [['E4', 'leave'], ['E1', 'leave'], ['band', 'leave']] },
-  { title: '遇過暴力的人有沒有保險', topic: '--c-safe', parts: [['viol', 'insured']] }
+  { title: '什麼讓人想離職', topic: '--c-stay', parts: [['E4', 'leave'], ['E1', 'leave'], ['band', 'leave']] }
 ];
 
 function renderFindings(s) {
@@ -646,7 +645,7 @@ function renderCross(s) {
   var box = document.getElementById('xBars');
   var metric = m.value;
   box.style.setProperty('--bar', 'var(' + ({ salary: '--c-pay', below: '--warn', leave: '--c-stay', violence: '--c-safe',
-    refund: '--c-pay', unpaid: '--c-time', raise3: '--c-pay', riskPay: '--c-safe', insured: '--c-safe' })[metric] + ')');
+    refund: '--c-pay', unpaid: '--c-time', raise3: '--c-pay', riskPay: '--c-safe' })[metric] + ')');
   crossBars(box, s, g.value, metric);
   document.getElementById('xNote').textContent = CROSS_METRICS[metric].salary
     ? '長條越長代表中位數越高；橘色是中位數落在 38,999 元以下。'

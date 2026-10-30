@@ -172,7 +172,9 @@ var SECTIONS = [
       { id: 'G1', label: '過去 12 個月，你在工作中遇過哪些事？（可複選）', type: 'checkbox', required: true,
         options: ['言語威脅', '肢體暴力', '跟蹤騷擾', '網路攻擊或肉搜', '被提告或被申訴', '都沒有'],
         exclusive: ['都沒有'] },
-      { id: 'G2', label: '有執業責任險或法律協助嗎？', type: 'radio', required: true,
+      // 2026-10-30 停用：台灣尚無正式的社工執業責任險，填答者容易和意外險混淆。
+      // 題目保留在這裡，試算表欄位才不會位移；停用後不顯示、不檢查、不統計，新回覆留空。
+      { id: 'G2', label: '有執業責任險或法律協助嗎？', type: 'radio', required: true, retired: true,
         hint: '受僱者請回答單位有沒有提供；自由接案請回答自己有沒有。',
         options: ['有責任險', '有法律協助', '兩者都有', '都沒有', '不知道'] },
       { id: 'G3', label: '2026 年剴剴案判決後，你的工作方式有沒有改變？（可複選）', type: 'checkbox', required: true,
@@ -210,6 +212,7 @@ function isFilled(v) {
 }
 
 function isVisible(q, answers) {
+  if (q.retired) return false;
   var c = q.showIf;
   if (!c) return true;
   // 依據的題目本身不顯示（例如改選自由接案後留下的舊答案），這題也不顯示
@@ -343,9 +346,7 @@ var CROSS_METRICS = {
     base: function (r) { return ['有，全額', '有，部分', '沒有'].indexOf(r.D6) >= 0; },
     hit: function (r) { return r.D6 === '有，全額'; } },
   riskPay: { label: '有領風險加給的比例（不含不知道）', base: function (r) { return r.B5 === '有' || r.B5 === '無'; },
-    hit: function (r) { return r.B5 === '有'; } },
-  insured: { label: '有執業責任險的比例（不含不知道）', base: function (r) { return isFilled(r.G2) && r.G2 !== '不知道'; },
-    hit: function (r) { return r.G2 === '有責任險' || r.G2 === '兩者都有'; } }
+    hit: function (r) { return r.B5 === '有'; } }
 };
 
 // 縣市不做交叉，避免組合太細被認出來
@@ -447,7 +448,7 @@ function aggregate(rows, now) {
   });
   out.dists = {};
   ['D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D1h', 'E1', 'E2', 'E3', 'E4', 'F2', 'F3',
-    'G1', 'G2', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
+    'G1', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
     out.dists[id] = distribution(rows, id);
   });
   // 誰來填問卷：單一題目的組成（一維，不交叉）
