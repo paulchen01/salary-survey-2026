@@ -139,7 +139,17 @@ function el(tag, attrs, children) {
 function setAnswer(q, value) {
   answers[q.id] = value;
   save(DRAFT_KEY, answers);
-  render();
+  // 有題目依這題決定要不要顯示、或正在顯示錯誤時才重畫整頁。
+  // 其他情況只同步這題的勾選狀態：點擊當下換掉整頁元素，部分 App 內建瀏覽器會吃掉下一次點選，複選題就像只能單選。
+  if (showErrors || QUESTIONS.some(function (x) { return x.showIf && x.showIf.q === q.id; })) render();
+  else syncInputs(q);
+}
+
+function syncInputs(q) {
+  var v = answers[q.id];
+  document.querySelectorAll('#wrap-' + q.id + ' input').forEach(function (input) {
+    input.checked = Array.isArray(v) ? v.indexOf(input.value) >= 0 : v === input.value;
+  });
 }
 
 function toggleCheckbox(q, option, checked) {
