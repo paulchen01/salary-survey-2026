@@ -284,9 +284,92 @@ function binQuantile(sortedIdx, p) {
   return sortedIdx[Math.floor(p * (sortedIdx.length - 1))];
 }
 
+/* ---------- 衍生分組（不是題目，由答案推出來） ---------- */
+
+var SECTORS = ['公部門', '醫院或醫事機構', '長照、安養或護理機構', '民間社福團體', '其他（事務所、企業等）', '自由接案'];
+function sectorOf(r) {
+  if (r.A4 === FREELANCE) return '自由接案';
+  if (!r.B1) return '';
+  if (PUBLIC_UNITS.indexOf(r.B1) >= 0) return '公部門';
+  if (r.B1 === '醫院或其他醫事機構') return '醫院或醫事機構';
+  if (r.B1 === '長照、安養或護理機構') return '長照、安養或護理機構';
+  if (r.B1 === '民間社福基金會、協會或團體') return '民間社福團體';
+  return '其他（事務所、企業等）';
+}
+
+var SALARY_BANDS = ['38,999 以下', '39,000–44,999', '45,000–50,999', '51,000 以上'];
+function salaryBandOf(r) {
+  var i = SALARY_BINS.indexOf(r.D1), b = SALARY_BINS.indexOf(BELOW_START_MAX_BIN);
+  if (r.A4 !== '全職受僱' || i < 0) return '';
+  return SALARY_BANDS[i <= b ? 0 : i <= b + 2 ? 1 : i <= b + 4 ? 2 : 3];
+}
+
+function violenceOf(r) {
+  if (!r.G1 || !r.G1.length) return '';
+  return r.G1.indexOf('都沒有') >= 0 ? '沒遇過' : '遇過';
+}
+
+var DERIVED = {
+  sector: { label: '就業部門', options: SECTORS, get: sectorOf },
+  band: { label: '月薪區間（全職）', options: SALARY_BANDS, get: salaryBandOf },
+  viol: { label: '過去一年有沒有遇過威脅、暴力或申訴', options: ['遇過', '沒遇過'], get: violenceOf }
+};
+
+// 某筆回覆是否屬於某個分組選項（題目、複選題、衍生分組都適用）
+function inGroup(r, key, label) {
+  if (DERIVED[key]) return DERIVED[key].get(r) === label;
+  var v = r[key];
+  return Array.isArray(v) ? v.indexOf(label) >= 0 : v === label;
+}
+function groupOptions(key) { return DERIVED[key] ? DERIVED[key].options : findQuestion(key).options; }
+function groupLabel(key) { return DERIVED[key] ? DERIVED[key].label : findQuestion(key).label; }
+
+function isFullSalary(r) { return r.A4 === '全職受僱' && SALARY_BINS.indexOf(r.D1) >= 0; }
+
+// 交叉分析的指標：base 決定分母（誰有回答這件事），hit 決定分子
+var CROSS_METRICS = {
+  salary: { label: '全職月薪中位數', salary: true },
+  below: { label: '月薪 38,999 元以下的比例（全職）', base: isFullSalary,
+    hit: function (r) { return SALARY_BINS.indexOf(r.D1) <= SALARY_BINS.indexOf(BELOW_START_MAX_BIN); } },
+  leave: { label: '一年內想離職（4–5 分）的比例', base: function (r) { return isFilled(r.H1); },
+    hit: function (r) { return r.H1 === '4' || r.H1 === '5'; } },
+  violence: { label: '遇過威脅、暴力或申訴的比例', base: function (r) { return violenceOf(r) !== ''; },
+    hit: function (r) { return violenceOf(r) === '遇過'; } },
+  refund: { label: '有回捐的比例', base: function (r) { return isFilled(r.D3); },
+    hit: function (r) { return r.D3 !== '沒有'; } },
+  unpaid: { label: '加班無償或不能報的比例', base: function (r) { return r.E2 && r.E2.length > 0; },
+    hit: function (r) { return r.E2.indexOf('無償') >= 0 || r.E2.indexOf('不被允許申報') >= 0; } },
+  raise3: { label: '3% 調薪全額落實的比例（不含不適用、不知道）',
+    base: function (r) { return ['有，全額', '有，部分', '沒有'].indexOf(r.D6) >= 0; },
+    hit: function (r) { return r.D6 === '有，全額'; } },
+  riskPay: { label: '有領風險加給的比例（不含不知道）', base: function (r) { return r.B5 === '有' || r.B5 === '無'; },
+    hit: function (r) { return r.B5 === '有'; } },
+  insured: { label: '有執業責任險的比例（不含不知道）', base: function (r) { return isFilled(r.G2) && r.G2 !== '不知道'; },
+    hit: function (r) { return r.G2 === '有責任險' || r.G2 === '兩者都有'; } }
+};
+
+// 縣市不做交叉，避免組合太細被認出來
+var CROSS_GROUPS = ['sector', 'B1', 'B1c', 'B1b', 'B2', 'B3', 'B4', 'A5', 'A3', 'C1', 'C2', 'C3', 'E4', 'E1', 'band', 'viol'];
+
+// 回傳每個分組選項一格：[人數, 數值]；人數不到 MIN_CELL 回傳 null。月薪的數值是區間索引。
+function crossTab(rows, key, metric) {
+  var m = CROSS_METRICS[metric];
+  return groupOptions(key).map(function (o) {
+    var g = rows.filter(function (r) { return inGroup(r, key, o); });
+    if (m.salary) {
+      var idx = g.filter(isFullSalary).map(function (r) { return SALARY_BINS.indexOf(r.D1); })
+        .sort(function (a, b) { return a - b; });
+      return idx.length < MIN_CELL ? null : [idx.length, binQuantile(idx, 0.5)];
+    }
+    var base = g.filter(m.base);
+    if (base.length < MIN_CELL) return null;
+    return [base.length, Math.round(base.filter(m.hit).length / base.length * 1000) / 1000];
+  });
+}
+
 function salaryGroup(rows, qid, options) {
   return options.map(function (label) {
-    var idx = rows.filter(function (r) { return r[qid] === label; })
+    var idx = rows.filter(function (r) { return inGroup(r, qid, label); })
       .map(function (r) { return SALARY_BINS.indexOf(r.D1); })
       .sort(function (a, b) { return a - b; });
     if (idx.length < MIN_CELL) return { label: label, suppressed: true };
@@ -303,6 +386,18 @@ function salaryGroup(rows, qid, options) {
 }
 
 function distribution(rows, qid) {
+  if (DERIVED[qid]) {
+    var d = DERIVED[qid];
+    var got = rows.filter(function (r) { return d.get(r) !== ''; });
+    if (got.length < MIN_CELL) return { question: d.label, suppressed: true };
+    return {
+      question: d.label, n: got.length, multi: false,
+      items: d.options.map(function (o) {
+        var k = got.filter(function (r) { return d.get(r) === o; }).length;
+        return { label: o, count: k, share: k / got.length };
+      })
+    };
+  }
   var q = findQuestion(qid);
   var base = rows.filter(function (r) { return isVisible(q, r) && isFilled(r[qid]); });
   if (base.length < MIN_CELL) return { question: q.label, suppressed: true };
@@ -346,18 +441,25 @@ function aggregate(rows, now) {
     violenceShare: rows.filter(function (r) { return r.G1.length && r.G1.indexOf('都沒有') < 0; }).length / rows.length
   };
   out.byYears = { C3: salaryGroup(full, 'C3', YEAR_BINS), C4: salaryGroup(full, 'C4', YEAR_BINS) };
-  out.groups = {
-    A2: salaryGroup(full, 'A2', COUNTIES),
-    B1: salaryGroup(full, 'B1', findQuestion('B1').options),
-    B1b: salaryGroup(full, 'B1b', findQuestion('B1b').options),
-    B1c: salaryGroup(full, 'B1c', findQuestion('B1c').options),
-    B2: salaryGroup(full, 'B2', findQuestion('B2').options),
-    B3: salaryGroup(full, 'B3', findQuestion('B3').options),
-    B4: salaryGroup(full, 'B4', findQuestion('B4').options)
-  };
+  out.groups = {};
+  ['sector', 'A2', 'B1', 'B1b', 'B1c', 'B2', 'B3', 'B4', 'B5', 'A5', 'A3', 'C1', 'C2'].forEach(function (k) {
+    out.groups[k] = salaryGroup(full, k, groupOptions(k));
+  });
   out.dists = {};
-  ['D3', 'D4', 'D6', 'D7', 'D8', 'E1', 'E2', 'F2', 'G1', 'G2', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
+  ['D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D1h', 'E1', 'E2', 'E3', 'E4', 'F2', 'F3',
+    'G1', 'G2', 'G3', 'H1', 'H2', 'H3'].forEach(function (id) {
     out.dists[id] = distribution(rows, id);
+  });
+  // 誰來填問卷：單一題目的組成（一維，不交叉）
+  out.sample = {};
+  ['sector', 'B1', 'B1c', 'A4', 'A2', 'A3', 'A5', 'B1b', 'B3', 'B2', 'C1', 'C2', 'C3'].forEach(function (id) {
+    out.sample[id] = distribution(rows, id);
+  });
+  // 交叉分析：每格 [人數, 數值]，壓縮成陣列避免超過快取上限
+  out.cross = {};
+  CROSS_GROUPS.forEach(function (k) {
+    out.cross[k] = {};
+    Object.keys(CROSS_METRICS).forEach(function (m) { out.cross[k][m] = crossTab(rows, k, m); });
   });
   // 自由接案另外統計，不混進受僱月薪
   out.free = {
