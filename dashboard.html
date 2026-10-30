@@ -201,7 +201,7 @@ svg text { fill: var(--text-2); font-size: 11px; }
 
     <div class="card x-new">
       <h2>重點發現</h2>
-      <p class="lead">把題目交叉比對，回答社工界最關心的幾個問題。每組 5 人以上才顯示。</p>
+      <p class="lead">把題目交叉比對，回答社工界最關心的幾個問題。每組 5 人以上才顯示；標 ＊ 的組別不到 10 人，一兩個人就會讓比例大幅變動，僅供參考。</p>
       <div class="grid-dists" id="findings"></div>
     </div>
 
@@ -396,7 +396,8 @@ function renderTiles(s) {
 
 function barList(container, items, opts) {
   container.innerHTML = '';
-  var max = Math.max.apply(null, items.map(function (i) { return opts.value(i); }).concat([1e-9]));
+  // 比例一律以 100% 為滿格（opts.max = 1），不然 1.4% 也會畫成整條；人數分布才以最大值為滿格
+  var max = opts.max || Math.max.apply(null, items.map(function (i) { return opts.value(i); }).concat([1e-9]));
   items.forEach(function (it, k) {
     if (opts.sepAfter !== undefined && k === opts.sepAfter + 1) {
       container.appendChild(el('div', { class: 'sep' }, opts.sepText));
@@ -418,7 +419,7 @@ function barList(container, items, opts) {
       num.appendChild(el('span', { class: 'sup-num' }, '樣本不足 5 人'));
     } else {
       num.appendChild(el('b', {}, opts.text(it)));
-      num.appendChild(el('span', { class: 'cnt' }, it.count + ' 人'));
+      num.appendChild(el('span', { class: 'cnt' }, it.count + ' 人' + (opts.fewBelow && it.count < opts.fewBelow ? ' ＊' : '')));
     }
     row.appendChild(num);
     container.appendChild(row);
@@ -537,6 +538,7 @@ function distCard(d, id) {
   var bars = el('div', { class: 'bars' });
   card.appendChild(bars);
   barList(bars, d.items, {
+    max: 1,
     value: function (i) { return i.share; },
     text: function (i) { return pct(i.share); },
     tip: function (i) { return i.count + ' 人，' + pct(i.share); }
@@ -571,6 +573,7 @@ function shareBars(id, d, colorVar) {
   box.style.setProperty('--bar', 'var(' + colorVar + ')');
   if (!d || d.suppressed) { box.innerHTML = ''; box.appendChild(el('p', { class: 'note' }, '回答人數不足 5 人')); return; }
   barList(box, d.items, {
+    max: 1,
     value: function (i) { return i.share; },
     text: function (i) { return pct(i.share); },
     tip: function (i) { return i.count + ' 人，' + pct(i.share); }
@@ -590,6 +593,8 @@ function crossItems(s, key, metric) {
 function crossBars(box, s, key, metric) {
   var isSalary = CROSS_METRICS[metric].salary;
   barList(box, crossItems(s, key, metric), {
+    max: isSalary ? 0 : 1,
+    fewBelow: isSalary ? 0 : 10,
     value: function (i) { return isSalary ? (i.sup ? 0 : i.v + 1) : i.v; },
     text: function (i) { return isSalary ? s.salaryBins[i.v] : pct(i.v); },
     tip: function (i) {
@@ -609,7 +614,7 @@ function renderSector(s) {
 var FINDINGS = [
   { title: '性別與月薪', topic: '--c-pay', parts: [['A5', 'salary']] },
   { title: '證照、學歷有沒有反映在薪水', topic: '--c-pay', parts: [['C2', 'salary'], ['C1', 'salary']] },
-  { title: '經費來源與政策落實', topic: '--c-pay', parts: [['B2', 'raise3'], ['B2', 'refund']] },
+  { title: '經費來源與 3% 調薪落實', topic: '--c-pay', parts: [['B2', 'raise3']] },
   { title: '保護業務有沒有相對的保障', topic: '--c-safe', parts: [['B4', 'riskPay'], ['B4', 'violence']] },
   { title: '什麼讓人想離職', topic: '--c-stay', parts: [['E4', 'leave'], ['E1', 'leave'], ['band', 'leave']] }
 ];
@@ -649,7 +654,7 @@ function renderCross(s) {
   crossBars(box, s, g.value, metric);
   document.getElementById('xNote').textContent = CROSS_METRICS[metric].salary
     ? '長條越長代表中位數越高；橘色是中位數落在 38,999 元以下。'
-    : '比例的分母是這一組裡有回答這件事的人。';
+    : '長條以 100% 為滿格；比例的分母是這一組裡有回答這件事的人。標 ＊ 的組別不到 10 人，僅供參考。';
 }
 
 function renderSample(s) {
